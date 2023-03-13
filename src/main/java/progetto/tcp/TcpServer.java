@@ -66,8 +66,8 @@ public class TcpServer implements Server {
 
     private void startServer() {
         try {
-            server.bind(new InetSocketAddress(port));
-            while (true) {
+            server.bind(new InetSocketAddress(host, port));
+            while (run) {
                 Socket socket = server.accept();
                 TcpSession session = new TcpSession(socket);
                 listeners.forEach(l -> l.onSessionAccepted(this, session));
