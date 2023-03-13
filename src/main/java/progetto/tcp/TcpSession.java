@@ -45,6 +45,7 @@ public class TcpSession implements Session {
 
     protected void runImpl() {
         try {
+            listeners.forEach(l -> l.onConnected(this));
             writeThead.start();
             ObjectInputStream in = new ObjectInputStream(socket.getInputStream());
             while (run) {

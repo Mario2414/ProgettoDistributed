@@ -22,7 +22,7 @@ public class TcpServer implements Server {
         this.host = host;
         this.port = port;
         try {
-            this.server = new ServerSocket(1);
+            this.server = new ServerSocket();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -66,7 +66,7 @@ public class TcpServer implements Server {
 
     private void startServer() {
         try {
-            server.bind(new InetSocketAddress(host, port));
+            server.bind(new InetSocketAddress(port));
             while (true) {
                 Socket socket = server.accept();
                 TcpSession session = new TcpSession(socket);

@@ -112,7 +112,7 @@ public class DistributedNode implements SessionListener {
     }
 
     @Override
-    public void onConnected(Session session, Packet packet) {
+    public void onConnected(Session session) {
 
     }
 
