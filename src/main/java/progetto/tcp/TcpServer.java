@@ -1,6 +1,7 @@
 package progetto.tcp;
 
 import progetto.Server;
+import progetto.Session;
 import progetto.session.ServerListener;
 
 import java.io.IOException;
@@ -69,7 +70,7 @@ public class TcpServer implements Server {
             server.bind(new InetSocketAddress(host, port));
             while (run) {
                 Socket socket = server.accept();
-                TcpSession session = new TcpSession(socket);
+                Session session = new TcpServerSession(socket);
                 listeners.forEach(l -> l.onSessionAccepted(this, session));
                 session.start();
             }

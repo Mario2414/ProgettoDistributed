@@ -1,9 +1,11 @@
 package progetto;
 
 import progetto.packet.Packet;
+import progetto.session.SessionID;
 import progetto.session.SessionListener;
 
 import java.util.List;
+import java.util.UUID;
 
 public interface Session {
     List<SessionListener> getListeners();
@@ -14,4 +16,5 @@ public interface Session {
     void sendPacket(Packet packet);
 
     void start();
+    SessionID getID();
 }

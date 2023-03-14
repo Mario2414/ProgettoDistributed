@@ -4,10 +4,10 @@ import progetto.packet.Packet;
 
 import java.util.UUID;
 
-public class SnapshotMarker implements Packet {
+public class SnapshotAckPacket implements Packet {
     private final UUID uuid;
 
-    public SnapshotMarker(UUID uuid) {
+    public SnapshotAckPacket(UUID uuid) {
         this.uuid = uuid;
     }
 

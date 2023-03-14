@@ -2,6 +2,7 @@ package progetto.tcp;
 
 import progetto.Session;
 import progetto.packet.Packet;
+import progetto.session.SessionID;
 import progetto.session.SessionListener;
 
 import java.io.IOException;
@@ -20,10 +21,11 @@ public class TcpSession implements Session {
     private volatile boolean run = false; //make it atomic boolean, just in case
     private final List<SessionListener> listeners = new ArrayList<>();
     protected final BlockingDeque<Packet> outboundPacketQueue;
+    protected SessionID sessionID;
     public TcpSession(Socket socket) {
         this.socket = socket;
-        receiveThread = new Thread(this::runImpl);
-        writeThead = new Thread(this::writeThread);
+        this.receiveThread = new Thread(this::runImpl);
+        this.writeThead = new Thread(this::writeThread);
         this.outboundPacketQueue = new LinkedBlockingDeque<>();
     }
 
@@ -41,6 +43,11 @@ public class TcpSession implements Session {
     public void start() {
         run = true;
         receiveThread.start();
+    }
+
+    @Override
+    public SessionID getID() {
+        return sessionID;
     }
 
     protected void runImpl() {

@@ -1,5 +1,8 @@
 package progetto.tcp;
 
+import progetto.session.SessionID;
+import progetto.session.packet.ClientGreetPacket;
+
 import java.net.InetSocketAddress;
 import java.net.Socket;
 
@@ -7,8 +10,9 @@ public class TcpClientSession extends TcpSession {
     private final String host;
     private final int port;
 
-    public TcpClientSession(String host, int port) {
+    public TcpClientSession(SessionID sessionID, String host, int port) {
         super(new Socket());
+        this.sessionID = sessionID;
         this.host = host;
         this.port = port;
     }
@@ -22,6 +26,7 @@ public class TcpClientSession extends TcpSession {
             //TODO
             return;
         }
+        sendPacket(new ClientGreetPacket(sessionID));
         super.runImpl();
     }
 }

@@ -1,47 +1,88 @@
 package progetto;
 
 import progetto.packet.Packet;
+import progetto.session.SessionID;
 import progetto.session.SessionListener;
-import progetto.session.packet.SnapshotAck;
-import progetto.session.packet.SnapshotMarker;
+import progetto.session.packet.SnapshotAckPacket;
+import progetto.session.packet.SnapshotMarkerPacket;
 import progetto.state.State;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.ObjectOutputStream;
-import java.util.List;
-import java.util.Map;
-import java.util.Queue;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.stream.Collectors;
 
 class Snapshot {
     private final UUID snapshotID;
     private final State state;
-    private final Map<UUID, List<Packet>> recordedPackets; //key is uuid of session?
-    public Snapshot(UUID snapshotID, State state) {
+    private final Map<SessionID, Collection<Packet>> recordedPackets;
+    private final HashSet<SessionID> pendingSessions;
+
+    public Snapshot(UUID snapshotID, State state, Collection<Session> sessions) {
         this.snapshotID = snapshotID;
-        recordedPackets = new ConcurrentHashMap<>();
+        this.recordedPackets = new ConcurrentHashMap<>();
+        this.pendingSessions = sessions.stream().map(Session::getID).collect(Collectors.toCollection(HashSet::new));
         this.state = state;
     }
 
-    public void writeToFile() {
+    public boolean writeToFile(File file) {
+        if(!isSnapshotComplete())
+            return false;
+
         try {
-            File file = new File(snapshotID.toString() + ".snapshot");
             ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(file));
             out.writeObject(snapshotID);
             out.writeObject(state);
-            for (Map.Entry<UUID, List<Packet>> packets : recordedPackets.entrySet()) {
+            for (Map.Entry<SessionID, Collection<Packet>> packets : recordedPackets.entrySet()) {
                 out.writeObject(packets.getKey());
                 out.writeInt(packets.getValue().size());
                 for(Packet packet: packets.getValue()) {
                     out.writeObject(packet);
                 }
             }
+            out.close();
+            return true;
         } catch (Exception e) {
             e.printStackTrace();
         }
+        return false;
+    }
+
+    public UUID getSnapshotID() {
+        return snapshotID;
+    }
+
+    public boolean isSessionPending(SessionID session) {
+        synchronized (pendingSessions) {
+            return pendingSessions.contains(session);
+        }
+    }
+
+    public void markSessionAsDone(SessionID id) {
+        synchronized (pendingSessions) {
+            pendingSessions.remove(id);
+        }
+    }
+
+    public boolean isSnapshotComplete() {
+        synchronized(pendingSessions) {
+            return pendingSessions.isEmpty();
+        }
+    }
+
+    public void recordPacket(SessionID id, Packet packet) {
+        Collection<Packet> packets;
+        if(recordedPackets.containsKey(id)) {
+            packets = recordedPackets.get(id);
+        } else {
+            packets = new ArrayDeque<>();
+            recordedPackets.put(id, packets);
+        }
+        packets.add(packet);
+        recordedPackets.put(id, packets);
     }
 }
 
@@ -49,10 +90,12 @@ public class DistributedNode implements SessionListener {
     private final Queue<Session> sessions;
     private final Map<UUID, Snapshot> snapshots;
     private final State state;
+    private final Queue<Snapshot> activeSnapshots;
 
     public DistributedNode(State state) {
         sessions = new ConcurrentLinkedQueue<>();
         this.snapshots = new ConcurrentHashMap<>();
+        this.activeSnapshots = new ConcurrentLinkedQueue<>();
         this.state = state;
     }
 
@@ -64,28 +107,31 @@ public class DistributedNode implements SessionListener {
     public void snapshot() {
         try {
             UUID uuid = UUID.randomUUID();
-            snapshots.put(uuid, new Snapshot(uuid, state.clone()));
-            sessions.forEach(s -> s.sendPacket(new SnapshotMarker(uuid)));
+            Snapshot snapshot = new Snapshot(uuid, state.clone(), sessions);
+            snapshots.put(uuid, snapshot);
+            sessions.forEach(s -> s.sendPacket(new SnapshotMarkerPacket(uuid)));
+            activeSnapshots.add(snapshot);
         } catch (Exception e) {
             e.printStackTrace();
         }
-
-        //TODO
     }
 
     @Override
     public void onPacketReceived(Session session, Packet packet) {
-        if(packet instanceof SnapshotMarker) {
-            UUID uuid = ((SnapshotMarker) packet).getUuid();
+        if(packet instanceof SnapshotMarkerPacket) {
+            UUID uuid = ((SnapshotMarkerPacket) packet).getUuid();
             boolean firstTime;
-            Snapshot snapshot;
+
             synchronized (this) {
                 firstTime = !snapshots.containsKey(uuid);
                 if(firstTime) {
-                    snapshot = new Snapshot(uuid, state.clone());
-                    snapshots.put(uuid, snapshot);
-                } else {
-                    snapshot = snapshots.get(uuid);
+                    Snapshot snapshot = new Snapshot(uuid, state.clone(), sessions.stream().filter(s -> s.getID().equals(session.getID())).toList());
+                    if(snapshot.isSnapshotComplete()) {
+                        //TODO listener for snapshot complete
+                    } else {
+                        snapshots.put(uuid, snapshot);
+                        activeSnapshots.add(snapshot);
+                    }
                 }
             }
 
@@ -97,13 +143,25 @@ public class DistributedNode implements SessionListener {
                 });
             }
 
-            session.sendPacket(new SnapshotAck(uuid));
-            //TODO save
-        } else if(packet instanceof SnapshotAck) {
-            //TODO
+            session.sendPacket(new SnapshotAckPacket(uuid));
+        } else if(packet instanceof SnapshotAckPacket) {
+            UUID snapshotID = ((SnapshotAckPacket) packet).getUuid();
+            if(snapshots.containsKey(snapshotID)) {
+                Snapshot snapshot = snapshots.get(snapshotID);
+                snapshot.markSessionAsDone(session.getID());
+                if(snapshot.isSnapshotComplete()) {
+                    //TODO listener for snapshot complete
+                    activeSnapshots.remove(snapshot);
+                    snapshots.remove(snapshotID);
+                }
+            }
         }
 
-        //TODO save packets from session
+        for(Snapshot snapshot: activeSnapshots) {
+            if(snapshot.isSessionPending(session.getID())) {
+                snapshot.recordPacket(session.getID(), packet);
+            }
+        }
     }
 
     @Override

@@ -5,12 +5,41 @@ import progetto.Server;
 import progetto.Session;
 import progetto.packet.Packet;
 import progetto.session.ServerListener;
+import progetto.session.SessionID;
 import progetto.session.SessionListener;
 import progetto.state.State;
 import progetto.tcp.TcpClientSession;
 import progetto.tcp.TcpServer;
 import progetto.tcp.TcpSession;
 
+import java.util.UUID;
+class SessionIDTest implements SessionID {
+    private UUID uuid;
+
+    public SessionIDTest(UUID uuid) {
+        this.uuid = uuid;
+    }
+
+    public UUID getUuid() {
+        return uuid;
+    }
+
+    @Override
+    public int compareTo(SessionID o) {
+        if(o instanceof SessionIDTest) {
+            return uuid.compareTo(((SessionIDTest) o).uuid);
+        }
+        return 0;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if(obj instanceof SessionID) {
+            return this.compareTo((SessionID) obj) == 0;
+        }
+        return false;
+    }
+}
 class StateTest extends State {
     private int test;
 
@@ -91,7 +120,7 @@ public class Main {
             StateTest test = new StateTest(1);
             DistributedNode node1 = new DistributedNode(test);
 
-            TcpClientSession session = new TcpClientSession("localhost", 8081);
+            TcpClientSession session = new TcpClientSession(new SessionIDTest(UUID.randomUUID()), "localhost", 8081);
             node1.addSession(session);
             session.addListener(new SessionListener() {
                 @Override
