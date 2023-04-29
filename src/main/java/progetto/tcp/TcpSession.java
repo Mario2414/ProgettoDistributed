@@ -8,6 +8,7 @@ import progetto.session.SessionListener;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.net.InetAddress;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
@@ -27,6 +28,10 @@ public class TcpSession implements Session {
         this.receiveThread = new Thread(this::runImpl);
         this.writeThead = new Thread(this::writeThread);
         this.outboundPacketQueue = new LinkedBlockingDeque<>();
+    }
+
+    public String getHostAddress(){
+        return socket.getInetAddress().getHostAddress();
     }
 
     @Override

@@ -32,7 +32,7 @@ public class TcpServer implements Server {
     @Override
     public String getHost() {
         return null;
-    }
+    } //Y null?
 
     @Override
     public int getPort() {

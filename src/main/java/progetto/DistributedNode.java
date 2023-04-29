@@ -21,6 +21,7 @@ class Snapshot {
     private final Map<SessionID, Collection<Packet>> recordedPackets;
     private final HashSet<SessionID> pendingSessions;
 
+    // Constructor for creating a snapshot with a unique snapshotID, a state object, and a collection of sessions
     public Snapshot(UUID snapshotID, State state, Collection<Session> sessions) {
         this.snapshotID = snapshotID;
         this.recordedPackets = new ConcurrentHashMap<>();
@@ -28,6 +29,7 @@ class Snapshot {
         this.state = state;
     }
 
+    // Write the snapshot to a file
     public boolean writeToFile(File file) {
         if(!isSnapshotComplete())
             return false;
@@ -51,28 +53,33 @@ class Snapshot {
         return false;
     }
 
+    // Get the snapshot ID
     public UUID getSnapshotID() {
         return snapshotID;
     }
 
+    // Check if a session is pending in the snapshot
     public boolean isSessionPending(SessionID session) {
         synchronized (pendingSessions) {
             return pendingSessions.contains(session);
         }
     }
 
+    // Mark a session as done in the snapshot
     public void markSessionAsDone(SessionID id) {
         synchronized (pendingSessions) {
             pendingSessions.remove(id);
         }
     }
 
+    // Check if the snapshot is complete
     public boolean isSnapshotComplete() {
         synchronized(pendingSessions) {
             return pendingSessions.isEmpty();
         }
     }
 
+    // Record a packet in the snapshot for a particular session
     public void recordPacket(SessionID id, Packet packet) {
         Collection<Packet> packets;
         if(recordedPackets.containsKey(id)) {
@@ -92,6 +99,7 @@ public class DistributedNode implements SessionListener {
     private final State state;
     private final Queue<Snapshot> activeSnapshots;
 
+    // Constructor for creating a distributed node with a state object
     public DistributedNode(State state) {
         sessions = new ConcurrentLinkedQueue<>();
         this.snapshots = new ConcurrentHashMap<>();
@@ -99,9 +107,18 @@ public class DistributedNode implements SessionListener {
         this.state = state;
     }
 
+    // Add a session to the distributed node
     public void addSession(Session session) {
         sessions.add(session);
         session.addListener(this);
+    }
+
+
+    //retuen a copy of session
+    public Queue<Session> getSessions() {
+        ConcurrentLinkedQueue<Session> clonedQueue = new ConcurrentLinkedQueue<>();
+        clonedQueue.addAll(sessions);
+        return clonedQueue;
     }
 
     public void snapshot() {
@@ -163,6 +180,7 @@ public class DistributedNode implements SessionListener {
             }
         }
     }
+    
 
     @Override
     public void onPacketSent(Session session, Packet packet) {

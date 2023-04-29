@@ -20,7 +20,8 @@ class SessionIDTest implements SessionID {
         this.uuid = uuid;
     }
 
-    public UUID getUuid() {
+
+    public UUID getID() {
         return uuid;
     }
 
@@ -62,6 +63,7 @@ class IncrementPacket implements Packet {
 public class Main {
     private static void node1() {
         try {
+            System.out.println("sono qui 11");
             StateTest test = new StateTest(1);
             DistributedNode node1 = new DistributedNode(test);
 
@@ -105,9 +107,8 @@ public class Main {
 
                 }
             });
-
             Thread.sleep(5000);
-            node1.snapshot();
+            //node1.snapshot();
             Thread.sleep(30000);
         } catch (Exception e) {
             e.printStackTrace();
