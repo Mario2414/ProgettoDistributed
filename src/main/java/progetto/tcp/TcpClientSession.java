@@ -20,9 +20,10 @@ public class TcpClientSession extends TcpSession {
     @Override
     protected void runImpl() {
         try {
-            socket.connect(new InetSocketAddress(host, port));
+            socket.connect(new InetSocketAddress(host, port), 1000);
         } catch (Exception e) {
             e.printStackTrace();
+
             //TODO
             return;
         }

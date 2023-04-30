@@ -20,7 +20,7 @@ import java.util.Scanner;
 
 
 public class Main {
-    private static boolean ableToSend = false;
+    private static boolean ableToSend = true;
     private static List<Packet> recoveryPackets = new ArrayList();
     private static int numberOfNodes;
     private static String[] ips ;
@@ -68,8 +68,9 @@ public class Main {
                         } else if (packet instanceof SomeoneDown){
                             if(!recoveryPackets.contains(packet)){
                                 recoveryPackets.add(packet);
-                                node.snapshot();
-                                sendToOut(packet);
+                                node.snapshot(); // al posto di snapshot ci sarà recovery
+                                sendToAll(packet);
+                                System.exit(1);
                             }
                         }
                     }
@@ -77,7 +78,7 @@ public class Main {
                     @Override
                     public void onPacketSent(Session session, Packet packet) {
                         //throw new MonoDirectionalException("The channel should be monodirectional");
-                        System.out.println("The channel should be monodirectional");
+                        //System.out.println("The channel should be monodirectional");
                     }
 
                     @Override
@@ -89,8 +90,8 @@ public class Main {
                     public void onDisconnection(Session session, Throwable exception) {
                         SomeoneDown recoveryMessage = new SomeoneDown(((TcpServerSession) session).getHostAddress());
                         recoveryPackets.add(recoveryMessage);
-                        sendToOut(recoveryMessage);
-                        node.snapshot();
+                        sendToAll(recoveryMessage);
+                        node.snapshot(); // al posto di snapshot ci sarà recovery
 
                         System.exit(1);
                     }
@@ -184,6 +185,75 @@ public class Main {
         }
     }
 
+    private static void tryToConnect(int id){
+        boolean succed = true;
+        while(succed){
+            try{
+                TcpClientSession session = new TcpClientSession(new SessionIDTest2(id), ips[id], ports[id]);
+                Thread.sleep(2000);
+                node.addSession(session);
+
+                session.addListener(new SessionListener() {
+                    @Override
+                    public void onPacketReceived(Session session, Packet packet) {
+                        if(packet instanceof SomeoneDown){
+                            if(!recoveryPackets.contains(packet)){
+                                recoveryPackets.add(packet);
+                                node.snapshot(); // al posto di snapshot ci sarà recovery
+                                sendToAll(packet);
+                                System.exit(1);
+                            }
+                        }
+                    }
+
+                    @Override
+                    public void onPacketSent(Session session, Packet packet) {
+                        if(packet instanceof ArrivingGoods) {
+                            state.refreshAfterSent(((ArrivingGoods) packet).getAmount());
+                        }
+                    }
+
+                    @Override
+                    public void onConnected(Session session) {
+                        System.out.println("session " + session.getID() + " connessa");
+                        outgoingLinks.add(session);
+                        if(outgoingLinks.size() == numberOfNodes){
+                            ableToSend = true;
+                        }
+                    }
+
+                    @Override
+                    public void onDisconnection(Session session, Throwable exception) {
+                        //recovery part
+                        System.out.println("session " + session.getID() + " disconnessa");
+                        outgoingLinks.remove(session);
+                        ableToSend = false;
+
+                        SomeoneDown recoveryMessage = new SomeoneDown(ips[((SessionIDTest2) session).getID()]);
+                        sendToOut(recoveryMessage);
+                        node.snapshot(); // cambiare con recovery
+                        System.exit(1);
+                        //nodesDown.add(recoveryMessage);
+                        //connectTo(((SessionIDTest2) session).getID());
+                    }
+                });
+                session.start();
+
+                succed=false;
+
+
+            } catch (Exception e) {
+                System.out.println("Waiting for " + ips[id] + " to be up");
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException ex) {
+                    ex.printStackTrace();
+                }
+            }
+        }
+    }
+
+
     private static void connectTo(int id){
         TcpClientSession session = new TcpClientSession(new SessionIDTest2(id), ips[id], ports[id]);
         node.addSession(session);
@@ -191,7 +261,14 @@ public class Main {
         session.addListener(new SessionListener() {
             @Override
             public void onPacketReceived(Session session, Packet packet) {
-
+                if(packet instanceof SomeoneDown){
+                    if(!recoveryPackets.contains(packet)){
+                        recoveryPackets.add(packet);
+                        node.snapshot(); // al posto di snapshot ci sarà recovery
+                        sendToAll(packet);
+                        System.exit(1);
+                    }
+                }
             }
 
             @Override
@@ -217,10 +294,12 @@ public class Main {
                 outgoingLinks.remove(session);
                 ableToSend = false;
 
-                //SomeoneDown recoveryMessage = new SomeoneDown(ips[((SessionIDTest2) session).getID()]);
-                //sendToOut(recoveryMessage);
+                SomeoneDown recoveryMessage = new SomeoneDown(ips[((SessionIDTest2) session).getID()]);
+                sendToOut(recoveryMessage);
+                node.snapshot(); // cambiare con recovery
+                System.exit(1);
                 //nodesDown.add(recoveryMessage);
-                connectTo(((SessionIDTest2) session).getID());
+                //connectTo(((SessionIDTest2) session).getID());
             }
         });
         session.start();
@@ -231,10 +310,6 @@ public class Main {
         while(!ableToSend) { // se non sono ableToSend continua a riprovare,
             if(outgoingLinks.size() == numberOfNodes){ //altrimenti controlla che tutti i nodi siano connessi
                 ableToSend = true;
-                for (Session a : outgoingLinks) {
-                        proceedPacket(packet, a);
-                }
-                break;
             } else {
                 try {
                     Thread.sleep(1000);
@@ -242,6 +317,9 @@ public class Main {
                     e.printStackTrace();
                 }
             }
+        }
+        for (Session a : outgoingLinks) {
+            proceedPacket(packet, a);
         }
     }
 

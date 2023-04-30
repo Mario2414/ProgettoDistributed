@@ -121,7 +121,7 @@ public class DistributedNode implements SessionListener {
                     }
                 });
             }
-
+            //Todo check this packet
             session.sendPacket(new SnapshotAckPacket(uuid));
         } else if(packet instanceof SnapshotAckPacket) {
             UUID snapshotID = ((SnapshotAckPacket) packet).getUuid();
