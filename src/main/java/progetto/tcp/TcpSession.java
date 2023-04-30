@@ -6,13 +6,12 @@ import progetto.session.SessionID;
 import progetto.session.SessionListener;
 import progetto.session.packet.KeepAlivePingPacket;
 import progetto.session.packet.KeepAlivePongPacket;
+import progetto.utils.ListenerList;
 
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.net.InetAddress;
 import java.net.Socket;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.LinkedBlockingDeque;
@@ -22,7 +21,7 @@ public class TcpSession implements Session {
     protected final Thread receiveThread;
     protected final Thread writeThead;
     private volatile boolean run = false; //make it atomic boolean, just in case
-    private final List<SessionListener> listeners = new ArrayList<>();
+    private final ListenerList<SessionListener> listeners = new ListenerList<>();
     protected final BlockingDeque<Packet> outboundPacketQueue;
     protected SessionID sessionID;
     protected long lastKeepAlive;
@@ -41,12 +40,12 @@ public class TcpSession implements Session {
 
     @Override
     public List<SessionListener> getListeners() {
-        return new ArrayList<>(listeners);
+        return listeners.clone();
     }
 
     @Override
     public void addListener(SessionListener sessionListener) {
-        listeners.add(sessionListener);
+        listeners.addListener(sessionListener);
     }
 
     @Override
@@ -62,7 +61,7 @@ public class TcpSession implements Session {
 
     protected void runImpl() {
         try {
-            listeners.forEach(l -> l.onConnected(this));
+            listeners.forEachListeners(l -> l.onConnected(this));
             writeThead.start();
             ObjectInputStream in = new ObjectInputStream(socket.getInputStream());
             while (run) {
@@ -71,11 +70,11 @@ public class TcpSession implements Session {
                     lastKeepAlive = ((KeepAlivePingPacket) packet).getTime();
                     sendPacket(new KeepAlivePongPacket(((KeepAlivePingPacket) packet).getTime()));
                 }
-                listeners.forEach(l -> l.onPacketReceived(this, packet));
+                listeners.forEachListeners(l -> l.onPacketReceived(this, packet));
             }
         } catch (Exception e) {
             e.printStackTrace();
-            listeners.forEach(sessionListener -> sessionListener.onDisconnection(this, e));
+            listeners.forEachListeners(sessionListener -> sessionListener.onDisconnection(this, e));
         } finally {
             run = false;
         }
@@ -87,7 +86,7 @@ public class TcpSession implements Session {
             while (run) {
                 Packet packet = outboundPacketQueue.take();
                 out.writeObject(packet);
-                listeners.forEach(l -> l.onPacketSent(this, packet));
+                listeners.forEachListeners(l -> l.onPacketSent(this, packet));
             }
         } catch (Exception e) {
             e.printStackTrace();

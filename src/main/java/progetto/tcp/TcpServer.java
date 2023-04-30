@@ -8,15 +8,14 @@ import progetto.session.SessionID;
 import progetto.session.SessionListener;
 import progetto.session.packet.KeepAlivePingPacket;
 import progetto.session.packet.KeepAlivePongPacket;
+import progetto.utils.ListenerList;
 
 import java.io.IOException;
-import java.lang.ref.WeakReference;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class TcpServer implements Server, SessionListener {
     private final Thread thread;
@@ -25,7 +24,7 @@ public class TcpServer implements Server, SessionListener {
     private final int port;
     private final ServerSocket server;
     private volatile boolean run = false;
-    private final List<ServerListener> listeners = new ArrayList<>();
+    private final ListenerList<ServerListener> listeners = new ListenerList<>();
 
     private final List<Session> activeSessions = new LinkedList<>();
     private Map<SessionID, Long> lastKeepAlive = new ConcurrentHashMap<>();
@@ -71,12 +70,12 @@ public class TcpServer implements Server, SessionListener {
 
     @Override
     public void addServerListener(ServerListener listener) {
-        listeners.add(listener);
+        listeners.addListener(listener);
     }
 
     @Override
     public List<ServerListener> getServerListeners() {
-        return listeners; //TODO maybe clone?
+        return listeners.clone();
     }
 
     private void startServer() {
@@ -89,13 +88,13 @@ public class TcpServer implements Server, SessionListener {
                 synchronized (activeSessions) {
                     activeSessions.add(session);
                 }
-                listeners.forEach(l -> l.onSessionAccepted(this, session));
+                listeners.forEachListeners(l -> l.onSessionAccepted(this, session));
                 session.start();
                 session.addListener(this);
             }
         } catch (Exception e){
             e.printStackTrace();
-            listeners.forEach(l -> l.onServerClosed(this, e));
+            listeners.forEachListeners(l -> l.onServerClosed(this, e));
         }
     }
 
@@ -152,7 +151,7 @@ public class TcpServer implements Server, SessionListener {
 
     @Override
     public void onDisconnection(Session session, Throwable exception) {
-        listeners.forEach(l -> l.onSessionClosed(this, session));
+        listeners.forEachListeners(l -> l.onSessionClosed(this, session));
         lastKeepAlive.remove(session.getID());
         synchronized (activeSessions) {
             activeSessions.removeIf(s -> s.getID() == session.getID());
