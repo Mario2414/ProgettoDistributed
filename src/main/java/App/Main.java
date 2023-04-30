@@ -54,8 +54,6 @@ public class Main {
             @Override
             public void onSessionAccepted(Server server, Session session) {
                 node.addSession(session);
-
-
                 session.addListener(new SessionListener() {
                     @Override
                     public void onPacketReceived(Session session, Packet packet) {
@@ -94,7 +92,7 @@ public class Main {
                         sendToOut(recoveryMessage);
                         node.snapshot();
 
-
+                        System.exit(1);
                     }
                 });
 

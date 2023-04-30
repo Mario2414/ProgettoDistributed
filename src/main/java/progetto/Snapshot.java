@@ -34,6 +34,7 @@ class Snapshot {
             ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(file));
             out.writeObject(snapshotID);
             out.writeObject(state);
+            out.writeInt(recordedPackets.size());
             for (Map.Entry<SessionID, Collection<Packet>> packets : recordedPackets.entrySet()) {
                 out.writeObject(packets.getKey());
                 out.writeInt(packets.getValue().size());
