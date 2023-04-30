@@ -113,7 +113,6 @@ public class DistributedNode implements SessionListener {
         session.addListener(this);
     }
 
-
     //return a copy of session
     public Queue<Session> getSessions() {
         return new ConcurrentLinkedQueue<>(sessions);

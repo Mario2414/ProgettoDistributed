@@ -20,7 +20,7 @@ import java.util.Scanner;
 
 
 public class Main {
-    private static Boolean ableToSend = false;
+    private static boolean ableToSend = false;
     private static List<Packet> recoveryPackets = new ArrayList();
     private static int numberOfNodes;
     private static String[] ips ;
@@ -49,7 +49,6 @@ public class Main {
         System.out.println("Starting server...");
         Server server = new TcpServer("localhost", 8081);
         server.bind();
-
 
         server.addServerListener(new ServerListener() {
             @Override
@@ -140,12 +139,11 @@ public class Main {
         if(numInput == 1){
         //----
             for (int i = 0; i < numberOfNodes; i++) {
-                tryToConnect(i);
+                connectTo(i);
             }
         }
 
-
-        while(true){
+        while(true) {
             System.out.println("To add manual goods press 1");
             System.out.println("To clean recovery history press 2");
             System.out.println("To start a snapshot press 3");
@@ -188,75 +186,58 @@ public class Main {
         }
     }
 
-    private static void tryToConnect(int id){
-        try {
-            Thread.sleep(1000);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-        Boolean succed = true;
-        while(succed){
-            try{
-                TcpClientSession session = new TcpClientSession(new SessionIDTest2(id), ips[id], ports[id]);
-                node.addSession(session);
+    private static void connectTo(int id){
+        TcpClientSession session = new TcpClientSession(new SessionIDTest2(id), ips[id], ports[id]);
+        node.addSession(session);
 
-                session.addListener(new SessionListener() {
-                    @Override
-                    public void onPacketReceived(Session session, Packet packet) {
-                        System.out.println("The channel should be monodirectional");
-                    }
+        session.addListener(new SessionListener() {
+            @Override
+            public void onPacketReceived(Session session, Packet packet) {
 
-                    @Override
-                    public void onPacketSent(Session session, Packet packet) {
-                        state.refreshAfterSent(((ArrivingGoods) packet).getAmount());
-                    }
-
-                    @Override
-                    public void onConnected(Session session) {
-                        System.out.println("session " + session.getID() + " connessa");
-                        outgoingLinks.add(session);
-                        if(outgoingLinks.size()==numberOfNodes){
-                            ableToSend = true;
-                        }
-                    }
-
-                    @Override
-                    public void onDisconnection(Session session, Throwable exception) {
-                        //recovery part
-                        System.out.println("session " + session.getID() + " disconnessa");
-                        outgoingLinks.remove(session);
-                        ableToSend = false;
-
-                        //SomeoneDown recoveryMessage = new SomeoneDown(ips[((SessionIDTest2) session).getID()]);
-                        //sendToOut(recoveryMessage);
-                        //nodesDown.add(recoveryMessage);
-                        tryToConnect(((SessionIDTest2) session).getID());
-
-                    }
-                });
-                session.start();
-
-                succed=false;
-
-
-            } catch (Exception e) {
-                System.out.println("Waiting for " + ips[id] + " to be up");
             }
-        }
 
+            @Override
+            public void onPacketSent(Session session, Packet packet) {
+                if(packet instanceof ArrivingGoods) {
+                    state.refreshAfterSent(((ArrivingGoods) packet).getAmount());
+                }
+            }
+
+            @Override
+            public void onConnected(Session session) {
+                System.out.println("session " + session.getID() + " connessa");
+                outgoingLinks.add(session);
+                if(outgoingLinks.size() == numberOfNodes){
+                    ableToSend = true;
+                }
+            }
+
+            @Override
+            public void onDisconnection(Session session, Throwable exception) {
+                //recovery part
+                System.out.println("session " + session.getID() + " disconnessa");
+                outgoingLinks.remove(session);
+                ableToSend = false;
+
+                //SomeoneDown recoveryMessage = new SomeoneDown(ips[((SessionIDTest2) session).getID()]);
+                //sendToOut(recoveryMessage);
+                //nodesDown.add(recoveryMessage);
+                connectTo(((SessionIDTest2) session).getID());
+            }
+        });
+        session.start();
     }
 
 
     public static void sendToOut(Packet packet){
-        while(!ableToSend){ // se non sono ableToSend continua a riprovare,
-            if(outgoingLinks.size()==numberOfNodes){ //altrimenti controlla che tutti i nodi siano connessi
+        while(!ableToSend) { // se non sono ableToSend continua a riprovare,
+            if(outgoingLinks.size() == numberOfNodes){ //altrimenti controlla che tutti i nodi siano connessi
                 ableToSend = true;
                 for (Session a : outgoingLinks) {
                         proceedPacket(packet, a);
                 }
                 break;
-            }
-            else{
+            } else {
                 try {
                     Thread.sleep(1000);
                 } catch (InterruptedException e) {
@@ -266,7 +247,7 @@ public class Main {
         }
     }
 
-    public static void sendToAll(Packet packet){
+    public static void sendToAll(Packet packet) {
         Queue<Session> nodeSessions = node.getSessions();
         for(Session session : nodeSessions){
             session.sendPacket(packet);
