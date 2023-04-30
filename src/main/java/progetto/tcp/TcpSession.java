@@ -4,6 +4,8 @@ import progetto.Session;
 import progetto.packet.Packet;
 import progetto.session.SessionID;
 import progetto.session.SessionListener;
+import progetto.session.packet.KeepAlivePingPacket;
+import progetto.session.packet.KeepAlivePongPacket;
 
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -23,11 +25,14 @@ public class TcpSession implements Session {
     private final List<SessionListener> listeners = new ArrayList<>();
     protected final BlockingDeque<Packet> outboundPacketQueue;
     protected SessionID sessionID;
+    protected long lastKeepAlive;
+
     public TcpSession(Socket socket) {
         this.socket = socket;
         this.receiveThread = new Thread(this::runImpl);
         this.writeThead = new Thread(this::writeThread);
         this.outboundPacketQueue = new LinkedBlockingDeque<>();
+        lastKeepAlive = System.currentTimeMillis();
     }
 
     public String getHostAddress(){
@@ -36,7 +41,7 @@ public class TcpSession implements Session {
 
     @Override
     public List<SessionListener> getListeners() {
-        return listeners; //maybe return copy?
+        return new ArrayList<>(listeners);
     }
 
     @Override
@@ -62,6 +67,10 @@ public class TcpSession implements Session {
             ObjectInputStream in = new ObjectInputStream(socket.getInputStream());
             while (run) {
                 Packet packet = (Packet) in.readObject();
+                if(packet instanceof KeepAlivePingPacket) {
+                    lastKeepAlive = ((KeepAlivePingPacket) packet).getTime();
+                    sendPacket(new KeepAlivePongPacket(((KeepAlivePingPacket) packet).getTime()));
+                }
                 listeners.forEach(l -> l.onPacketReceived(this, packet));
             }
         } catch (Exception e) {

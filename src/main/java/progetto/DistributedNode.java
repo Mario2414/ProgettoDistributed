@@ -114,11 +114,9 @@ public class DistributedNode implements SessionListener {
     }
 
 
-    //retuen a copy of session
+    //return a copy of session
     public Queue<Session> getSessions() {
-        ConcurrentLinkedQueue<Session> clonedQueue = new ConcurrentLinkedQueue<>();
-        clonedQueue.addAll(sessions);
-        return clonedQueue;
+        return new ConcurrentLinkedQueue<>(sessions);
     }
 
     public void snapshot() {

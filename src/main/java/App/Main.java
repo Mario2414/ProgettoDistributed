@@ -20,7 +20,7 @@ import java.util.Scanner;
 
 
 public class Main {
-    private static Boolean ableToSend=false;
+    private static Boolean ableToSend = false;
     private static List<Packet> recoveryPackets = new ArrayList();
     private static int numberOfNodes;
     private static String[] ips ;
@@ -33,11 +33,6 @@ public class Main {
     private static DistributedNode node;
 
     private static ConfigReader parameters;
-
-
-
-
-
 
     public static void main(String[] args) {
         node = new DistributedNode(state);
@@ -80,7 +75,6 @@ public class Main {
                                 sendToOut(packet);
                             }
                         }
-
                     }
 
                     @Override
@@ -108,6 +102,11 @@ public class Main {
             }
 
             @Override
+            public void onSessionClosed(Server server, Session session) {
+
+            }
+
+            @Override
             public void onServerClosed(Server server, Throwable t) {
 
             }
@@ -122,49 +121,57 @@ public class Main {
 
         Scanner stdin = new Scanner(System.in);
 
+        //this seems unnecessary at the moment.
+        // do you want to add other options?
+        //let's keep it for now anyway. just a reminder for the future //TODO
         System.out.println("To connect to predefined clients type 1");
-        Boolean retry = true;
+        boolean retry;
         int numInput = 1;
-        while (retry){
+        do {
             try{
                 numInput = Integer.parseInt(stdin.nextLine());
                 retry = false;
             }catch (Exception e){
                 System.out.println("Please insert a number");
+                retry = true;
             }
-        }
+        } while (retry);
 
         if(numInput == 1){
+        //----
             for (int i = 0; i < numberOfNodes; i++) {
                 tryToConnect(i);
             }
         }
+
 
         while(true){
             System.out.println("To add manual goods press 1");
             System.out.println("To clean recovery history press 2");
             System.out.println("To start a snapshot press 3");
 
-            while (retry){
+            do {
                 try{
                     numInput = Integer.parseInt(stdin.nextLine());
                     retry = false;
                 }catch (Exception e){
                     System.out.println("Please insert a number");
+                    retry = true;
                 }
-            }
+            } while (retry);
 
             if(numInput == 1){
                 float numGoods = 0;
-                while (retry){
+                do {
                     try{
                         System.out.println("Please insert the number of goods to be processed");
                         numGoods = Float.parseFloat(stdin.nextLine());
                         retry = false;
-                    }catch (Exception e){
+                    } catch (Exception e){
                         System.out.println("Please insert a number");
+                        retry = true;
                     }
-                }
+                } while (retry);
                 state.refreshWorkingOn(numGoods * parameters.getMultiplier());
                 try {
                     Thread.sleep(1000*(parameters.getProductionTime()));
@@ -172,11 +179,9 @@ public class Main {
                     e.printStackTrace();
                 }
                 sendToOut(new ArrivingGoods(numGoods));
-            }
-            else if (numInput == 2) {
+            } else if (numInput == 2) {
                 recoveryPackets = new ArrayList<>();
-            }
-            else if (numInput == 3){
+            } else if (numInput == 3){
                 node.snapshot();
             }
 
@@ -278,10 +283,7 @@ public class Main {
             session.sendPacket(packet);
         }
     }
-
-    }
-
-
+}
 
 
 
