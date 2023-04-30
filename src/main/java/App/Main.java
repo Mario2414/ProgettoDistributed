@@ -191,7 +191,7 @@ public class Main {
             try{
                 TcpClientSession session = new TcpClientSession(new SessionIDTest2(id), ips[id], ports[id]);
                 AtomicBoolean failed = new AtomicBoolean(false);
-                Semaphore semaphore = new Semaphore(1);
+                Semaphore semaphore = new Semaphore(0);
                 SessionListener tempListener = new SessionListener() {
                     @Override
                     public void onPacketReceived(Session session, Packet packet) {
