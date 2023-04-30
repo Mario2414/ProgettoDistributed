@@ -1,5 +1,5 @@
 package progetto;
 
 public interface DistributedNodeListener {
-    void onShapshotCompleted(DistributedNode node);
+    void onShapshotCompleted(DistributedNode node, Snapshot snapshot);
 }

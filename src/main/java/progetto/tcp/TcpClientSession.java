@@ -23,8 +23,7 @@ public class TcpClientSession extends TcpSession {
             socket.connect(new InetSocketAddress(host, port), 1000);
         } catch (Exception e) {
             e.printStackTrace();
-
-            //TODO
+            listeners.forEachListeners(sessionListener -> sessionListener.onDisconnection(this, e));
             return;
         }
         sendPacket(new ClientGreetPacket(sessionID));

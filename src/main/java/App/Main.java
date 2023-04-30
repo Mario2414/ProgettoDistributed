@@ -3,9 +3,7 @@ package App;
 
 import App.packets.ArrivingGoods;
 import App.packets.SomeoneDown;
-import progetto.DistributedNode;
-import progetto.Server;
-import progetto.Session;
+import progetto.*;
 import progetto.packet.Packet;
 import progetto.session.ServerListener;
 import progetto.session.SessionListener;
@@ -13,10 +11,11 @@ import progetto.tcp.TcpClientSession;
 import progetto.tcp.TcpServer;
 import progetto.tcp.TcpServerSession;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Queue;
-import java.util.Scanner;
+import java.io.File;
+import java.util.*;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 
 public class Main {
@@ -30,12 +29,12 @@ public class Main {
 
     private static StateApp state = new StateApp();
 
-    private static DistributedNode node;
+    private static MyAppDistributedNode node;
 
     private static ConfigReader parameters;
 
     public static void main(String[] args) {
-        node = new DistributedNode(state);
+        node = new MyAppDistributedNode(state);
 
         try {
             System.out.println("Reading config parameters");
@@ -91,7 +90,6 @@ public class Main {
                         SomeoneDown recoveryMessage = new SomeoneDown(((TcpServerSession) session).getHostAddress());
                         recoveryPackets.add(recoveryMessage);
                         sendToAll(recoveryMessage);
-                        node.snapshot(); // al posto di snapshot ci sarà recovery
 
                         System.exit(1);
                     }
@@ -180,6 +178,8 @@ public class Main {
                 recoveryPackets = new ArrayList<>();
             } else if (numInput == 3){
                 node.snapshot();
+            } else if(numInput == 4) {
+                state = node.restoreSnapshot(new File("latest.snapshot"));
             }
 
         }
@@ -190,58 +190,82 @@ public class Main {
         while(succed){
             try{
                 TcpClientSession session = new TcpClientSession(new SessionIDTest2(id), ips[id], ports[id]);
-                Thread.sleep(2000);
-                node.addSession(session);
-
-                session.addListener(new SessionListener() {
+                AtomicBoolean failed = new AtomicBoolean(false);
+                Semaphore semaphore = new Semaphore(1);
+                SessionListener tempListener = new SessionListener() {
                     @Override
                     public void onPacketReceived(Session session, Packet packet) {
-                        if(packet instanceof SomeoneDown){
-                            if(!recoveryPackets.contains(packet)){
-                                recoveryPackets.add(packet);
-                                node.snapshot(); // al posto di snapshot ci sarà recovery
-                                sendToAll(packet);
-                                System.exit(1);
-                            }
-                        }
+
                     }
 
                     @Override
                     public void onPacketSent(Session session, Packet packet) {
-                        if(packet instanceof ArrivingGoods) {
-                            state.refreshAfterSent(((ArrivingGoods) packet).getAmount());
-                        }
+
                     }
 
                     @Override
                     public void onConnected(Session session) {
-                        System.out.println("session " + session.getID() + " connessa");
-                        outgoingLinks.add(session);
-                        if(outgoingLinks.size() == numberOfNodes){
-                            ableToSend = true;
-                        }
+                        semaphore.release();
+                        node.addSession(session);
+                        session.addListener(new SessionListener() {
+                            @Override
+                            public void onPacketReceived(Session session, Packet packet) {
+                                if(packet instanceof SomeoneDown){
+                                    if(!recoveryPackets.contains(packet)){
+                                        recoveryPackets.add(packet);
+                                        node.snapshot(); // al posto di snapshot ci sarà recovery
+                                        sendToAll(packet);
+                                        System.exit(1);
+                                    }
+                                }
+                            }
+
+                            @Override
+                            public void onPacketSent(Session session, Packet packet) {
+                                if(packet instanceof ArrivingGoods) {
+                                    state.refreshAfterSent(((ArrivingGoods) packet).getAmount());
+                                }
+                            }
+
+                            @Override
+                            public void onConnected(Session session) {
+                                System.out.println("session " + session.getID() + " connessa");
+                                outgoingLinks.add(session);
+                                if(outgoingLinks.size() == numberOfNodes){
+                                    ableToSend = true;
+                                }
+                            }
+
+                            @Override
+                            public void onDisconnection(Session session, Throwable exception) {
+                                //recovery part
+                                System.out.println("session " + session.getID() + " disconnessa");
+                                outgoingLinks.remove(session);
+                                ableToSend = false;
+
+                                SomeoneDown recoveryMessage = new SomeoneDown(ips[((SessionIDTest2) session).getID()]);
+                                sendToOut(recoveryMessage);
+                                node.snapshot(); // cambiare con recovery
+                                System.exit(1);
+                                //nodesDown.add(recoveryMessage);
+                                //connectTo(((SessionIDTest2) session).getID());
+                            }
+                        });
                     }
 
                     @Override
                     public void onDisconnection(Session session, Throwable exception) {
-                        //recovery part
-                        System.out.println("session " + session.getID() + " disconnessa");
-                        outgoingLinks.remove(session);
-                        ableToSend = false;
-
-                        SomeoneDown recoveryMessage = new SomeoneDown(ips[((SessionIDTest2) session).getID()]);
-                        sendToOut(recoveryMessage);
-                        node.snapshot(); // cambiare con recovery
-                        System.exit(1);
-                        //nodesDown.add(recoveryMessage);
-                        //connectTo(((SessionIDTest2) session).getID());
+                        semaphore.notify();
+                        failed.set(true);
                     }
-                });
+                };
+                session.addListener(tempListener);
+                semaphore.acquire();
                 session.start();
 
-                succed=false;
+                if(!failed.get()) {
 
-
+                }
             } catch (Exception e) {
                 System.out.println("Waiting for " + ips[id] + " to be up");
                 try {

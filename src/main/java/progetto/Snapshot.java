@@ -11,7 +11,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
-class Snapshot {
+public class Snapshot {
     private final UUID snapshotID;
     private final State state;
     private final Map<SessionID, Collection<Packet>> recordedPackets;

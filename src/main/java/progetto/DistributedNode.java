@@ -106,7 +106,7 @@ public class DistributedNode implements SessionListener {
                 if(firstTime) {
                     Snapshot snapshot = new Snapshot(uuid, state.clone(), sessions.stream().filter(s -> s.getID().equals(session.getID())).toList());
                     if(snapshot.isSnapshotComplete()) {
-                        listeners.forEachListeners(l -> l.onShapshotCompleted(this));
+                        listeners.forEachListeners(l -> l.onShapshotCompleted(this, snapshot));
                     } else {
                         snapshots.put(uuid, snapshot);
                         activeSnapshots.add(snapshot);
@@ -131,7 +131,7 @@ public class DistributedNode implements SessionListener {
                 synchronized (this) {
                     snapshot.markSessionAsDone(session.getID());
                     if (snapshot.isSnapshotComplete()) {
-                        listeners.forEachListeners(l -> l.onShapshotCompleted(this));
+                        listeners.forEachListeners(l -> l.onShapshotCompleted(this, snapshot));
                         activeSnapshots.remove(snapshot);
                         snapshots.remove(snapshotID);
                     }

@@ -21,7 +21,7 @@ public class TcpSession implements Session {
     protected final Thread receiveThread;
     protected final Thread writeThead;
     private volatile boolean run = false; //make it atomic boolean, just in case
-    private final ListenerList<SessionListener> listeners = new ListenerList<>();
+    protected final ListenerList<SessionListener> listeners = new ListenerList<>();
     protected final BlockingDeque<Packet> outboundPacketQueue;
     protected SessionID sessionID;
     protected long lastKeepAlive;
