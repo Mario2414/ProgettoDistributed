@@ -20,13 +20,17 @@ public class TcpClientSession extends TcpSession {
     @Override
     protected void runImpl() {
         try {
-            socket.connect(new InetSocketAddress(host, port), 1000);
+            socket.connect(new InetSocketAddress(host, port));
+
         } catch (Exception e) {
-            e.printStackTrace();
-            listeners.forEachListeners(sessionListener -> sessionListener.onDisconnection(this, e));
-            return;
+            System.out.println("connection to "+ host +" failed");
+            //e.printStackTrace();
+            //listeners.forEachListeners(sessionListener -> sessionListener.onDisconnection(this, e));
+            //return; //cause strange behaviour the thread does not terminate and return to main
         }
-        sendPacket(new ClientGreetPacket(sessionID));
-        super.runImpl();
+        if(socket.isConnected()) {
+            sendPacket(new ClientGreetPacket(sessionID));
+            super.runImpl();
+        }
     }
 }

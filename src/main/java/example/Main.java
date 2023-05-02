@@ -13,6 +13,7 @@ import progetto.tcp.TcpServer;
 import progetto.tcp.TcpSession;
 
 import java.util.UUID;
+/**
 class SessionIDTest implements SessionID {
     private UUID uuid;
 
@@ -157,3 +158,5 @@ public class Main {
     }
 
 }
+
+ **/

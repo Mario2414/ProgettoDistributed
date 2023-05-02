@@ -12,20 +12,21 @@ import progetto.tcp.TcpServer;
 import progetto.tcp.TcpServerSession;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.*;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Semaphore;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 
-public class Main {
+public class App {
     private static boolean ableToSend = true;
-    private static List<Packet> recoveryPackets = new ArrayList();
+    private static ConcurrentLinkedQueue<Packet> recoveryPackets = new ConcurrentLinkedQueue<>();
     private static int numberOfNodes;
     private static String[] ips ;
     private static int[] ports ;
 
-    private static List<Session> outgoingLinks = new ArrayList<>();
+    private static ConcurrentLinkedQueue<Session> outgoingLinks = new ConcurrentLinkedQueue<>(); //Accesso in maniera concorrente nei listener
+
+    private static ConcurrentLinkedQueue<Integer> notConnectedNodes = new ConcurrentLinkedQueue<>(); //acceddo in maniera concorrente nei listener
 
     private static StateApp state = new StateApp();
 
@@ -43,6 +44,14 @@ public class Main {
         } catch (Exception e) {
             System.out.println("Error reading config file");
             throw new RuntimeException(e);
+        }
+
+        numberOfNodes = parameters.getNumOfNodes();
+        ips = parameters.getNodeIPs();
+        ports = parameters.getNodePorts();
+
+        for(int i=0; i < numberOfNodes; i++){
+            notConnectedNodes.add(i);
         }
 
         System.out.println("Starting server...");
@@ -67,7 +76,6 @@ public class Main {
                         } else if (packet instanceof SomeoneDown){
                             if(!recoveryPackets.contains(packet)){
                                 recoveryPackets.add(packet);
-                                node.snapshot(); // al posto di snapshot ci sarà recovery
                                 sendToAll(packet);
                                 System.exit(1);
                             }
@@ -76,8 +84,6 @@ public class Main {
 
                     @Override
                     public void onPacketSent(Session session, Packet packet) {
-                        //throw new MonoDirectionalException("The channel should be monodirectional");
-                        //System.out.println("The channel should be monodirectional");
                     }
 
                     @Override
@@ -110,19 +116,16 @@ public class Main {
 
         System.out.println("Server started");
 
-        numberOfNodes = parameters.getNumOfNodes();
-        ips = parameters.getNodeIPs();
-        ports = parameters.getNodePorts();
-
 
         Scanner stdin = new Scanner(System.in);
-
-        //this seems unnecessary at the moment.
-        // do you want to add other options?
-        //let's keep it for now anyway. just a reminder for the future //TODO
-        System.out.println("To connect to predefined clients type 1");
         boolean retry;
         int numInput = 1;
+
+        tryToConnect2();
+
+        /*
+        System.out.println("To connect to predefined clients type 1");
+
         do {
             try{
                 numInput = Integer.parseInt(stdin.nextLine());
@@ -134,11 +137,10 @@ public class Main {
         } while (retry);
 
         if(numInput == 1){
-        //----
-            for (int i = 0; i < numberOfNodes; i++) {
-                connectTo(i);
-            }
+            tryToConnect2();
         }
+
+         */
 
         while(true) {
             System.out.println("To add manual goods press 1");
@@ -175,19 +177,41 @@ public class Main {
                 }
                 sendToOut(new ArrivingGoods(numGoods));
             } else if (numInput == 2) {
-                recoveryPackets = new ArrayList<>();
+                recoveryPackets = new ConcurrentLinkedQueue<>();
             } else if (numInput == 3){
                 node.snapshot();
-            } else if(numInput == 4) {
-                state = node.restoreSnapshot(new File("latest.snapshot"));
+            } else if(numInput == 4) { //todo check if it makes sense
+                try {
+                    state = (StateApp) node.restoreSnapshot(new File("latest.snapshot"));
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                } catch (ClassNotFoundException e) {
+                    throw new RuntimeException(e);
+                }
             }
 
         }
     }
 
+    public synchronized static void tryToConnect2(){
+        while(outgoingLinks.size() != numberOfNodes){
+            for(Integer a : notConnectedNodes){
+                connectTo((int) a);
+            }
+
+            try {
+                Thread.sleep(60000); //timer to wait before retrying to connect, set to 60 seconds
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }
+    }
+
+    /*
+
     private static void tryToConnect(int id){
-        boolean succed = true;
-        while(succed){
+        boolean notSucced = true;
+        while(notSucced){
             try{
                 TcpClientSession session = new TcpClientSession(new SessionIDTest2(id), ips[id], ports[id]);
                 AtomicBoolean failed = new AtomicBoolean(false);
@@ -245,7 +269,6 @@ public class Main {
 
                                 SomeoneDown recoveryMessage = new SomeoneDown(ips[((SessionIDTest2) session).getID()]);
                                 sendToOut(recoveryMessage);
-                                node.snapshot(); // cambiare con recovery
                                 System.exit(1);
                                 //nodesDown.add(recoveryMessage);
                                 //connectTo(((SessionIDTest2) session).getID());
@@ -262,7 +285,6 @@ public class Main {
                 session.addListener(tempListener);
                 semaphore.acquire();
                 session.start();
-
                 if(!failed.get()) {
 
                 }
@@ -276,11 +298,11 @@ public class Main {
             }
         }
     }
+     */
 
 
     private static void connectTo(int id){
         TcpClientSession session = new TcpClientSession(new SessionIDTest2(id), ips[id], ports[id]);
-        node.addSession(session);
 
         session.addListener(new SessionListener() {
             @Override
@@ -288,7 +310,6 @@ public class Main {
                 if(packet instanceof SomeoneDown){
                     if(!recoveryPackets.contains(packet)){
                         recoveryPackets.add(packet);
-                        node.snapshot(); // al posto di snapshot ci sarà recovery
                         sendToAll(packet);
                         System.exit(1);
                     }
@@ -305,7 +326,9 @@ public class Main {
             @Override
             public void onConnected(Session session) {
                 System.out.println("session " + session.getID() + " connessa");
+                node.addSession(session);
                 outgoingLinks.add(session);
+                notConnectedNodes.remove(id);
                 if(outgoingLinks.size() == numberOfNodes){
                     ableToSend = true;
                 }
@@ -316,14 +339,12 @@ public class Main {
                 //recovery part
                 System.out.println("session " + session.getID() + " disconnessa");
                 outgoingLinks.remove(session);
+                notConnectedNodes.add(id);
                 ableToSend = false;
 
-                SomeoneDown recoveryMessage = new SomeoneDown(ips[((SessionIDTest2) session).getID()]);
+                SomeoneDown recoveryMessage = new SomeoneDown(ips[((SessionIDTest2) (session.getID())).getID()]);
                 sendToOut(recoveryMessage);
-                node.snapshot(); // cambiare con recovery
                 System.exit(1);
-                //nodesDown.add(recoveryMessage);
-                //connectTo(((SessionIDTest2) session).getID());
             }
         });
         session.start();
