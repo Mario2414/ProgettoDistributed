@@ -1,24 +1,24 @@
 package progetto;
 
 import progetto.packet.Packet;
-import progetto.session.SessionID;
 import progetto.state.State;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.ObjectOutputStream;
+import java.io.Serializable;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
-public class Snapshot {
+public class Snapshot<ID extends Comparable<ID> & Serializable> {
     private final UUID snapshotID;
     private final State state;
-    private final Map<SessionID, Collection<Packet>> recordedPackets;
-    private final HashSet<SessionID> pendingSessions;
+    private final Map<ID, Collection<Packet>> recordedPackets;
+    private final HashSet<ID> pendingSessions;
 
     // Constructor for creating a snapshot with a unique snapshotID, a state object, and a collection of sessions
-    public Snapshot(UUID snapshotID, State state, Collection<Session> sessions) {
+    public Snapshot(UUID snapshotID, State state, Collection<Session<ID>> sessions) {
         this.snapshotID = snapshotID;
         this.recordedPackets = new ConcurrentHashMap<>();
         this.pendingSessions = sessions.stream().map(Session::getID).collect(Collectors.toCollection(HashSet::new));
@@ -35,7 +35,7 @@ public class Snapshot {
             out.writeObject(snapshotID);
             out.writeObject(state);
             out.writeInt(recordedPackets.size());
-            for (Map.Entry<SessionID, Collection<Packet>> packets : recordedPackets.entrySet()) {
+            for (Map.Entry<ID, Collection<Packet>> packets : recordedPackets.entrySet()) {
                 out.writeObject(packets.getKey());
                 out.writeInt(packets.getValue().size());
                 for(Packet packet: packets.getValue()) {
@@ -56,14 +56,14 @@ public class Snapshot {
     }
 
     // Check if a session is pending in the snapshot
-    public boolean isSessionPending(SessionID session) {
+    public boolean isSessionPending(ID session) {
         synchronized (pendingSessions) {
             return pendingSessions.contains(session);
         }
     }
 
     // Mark a session as done in the snapshot
-    public void markSessionAsDone(SessionID id) {
+    public void markSessionAsDone(ID id) {
         synchronized (pendingSessions) {
             pendingSessions.remove(id);
         }
@@ -77,7 +77,7 @@ public class Snapshot {
     }
 
     // Record a packet in the snapshot for a particular session
-    public void recordPacket(SessionID id, Packet packet) {
+    public void recordPacket(ID id, Packet packet) {
         Collection<Packet> packets;
         if(recordedPackets.containsKey(id)) {
             packets = recordedPackets.get(id);

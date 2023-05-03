@@ -3,9 +3,11 @@ package progetto.session;
 import progetto.Session;
 import progetto.packet.Packet;
 
-public interface SessionListener {
-    void onPacketReceived(Session session, Packet packet);
-    void onPacketSent(Session session, Packet packet);
-    void onConnected(Session session);
-    void onDisconnection(Session session, Throwable exception);
+import java.io.Serializable;
+
+public interface SessionListener<ID extends Comparable<ID> & Serializable> {
+    void onPacketReceived(Session<ID> session, Packet packet);
+    void onPacketSent(Session<ID> session, Packet packet);
+    void onConnected(Session<ID> session);
+    void onDisconnection(Session<ID> session, Throwable exception);
 }

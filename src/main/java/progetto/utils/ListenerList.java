@@ -35,7 +35,7 @@ public class ListenerList<T> extends LinkedBlockingDeque<WeakReference<T>> {
 
     public List<T> clone() {
         List<T> arrayList = new ArrayList<>(this.size());
-        this.forEachListeners(l -> arrayList.add(l));
+        this.forEachListeners(arrayList::add);
         return arrayList;
     }
 }

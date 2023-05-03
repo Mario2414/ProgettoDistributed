@@ -1,16 +1,15 @@
 package progetto.session.packet;
 
 import progetto.packet.Packet;
-import progetto.session.SessionID;
 
-public class ClientGreetPacket implements Packet {
-    private final SessionID sessionID;
+public class ClientGreetPacket<ID> implements Packet {
+    private final ID sessionID;
 
-    public ClientGreetPacket(SessionID sessionID) {
+    public ClientGreetPacket(ID sessionID) {
         this.sessionID = sessionID;
     }
 
-    public SessionID getSessionID() {
+    public ID getSessionID() {
         return sessionID;
     }
 }

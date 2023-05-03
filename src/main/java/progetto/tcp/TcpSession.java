@@ -2,7 +2,6 @@ package progetto.tcp;
 
 import progetto.Session;
 import progetto.packet.Packet;
-import progetto.session.SessionID;
 import progetto.session.SessionListener;
 import progetto.session.packet.KeepAlivePingPacket;
 import progetto.session.packet.KeepAlivePongPacket;
@@ -11,19 +10,20 @@ import progetto.utils.ListenerList;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.io.Serializable;
 import java.net.Socket;
 import java.util.List;
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.LinkedBlockingDeque;
 
-public class TcpSession implements Session {
+public class TcpSession<ID extends Comparable<ID> & Serializable> implements Session<ID> {
     protected final Socket socket;
     protected final Thread receiveThread;
     protected final Thread writeThead;
     private volatile boolean run = false; //make it atomic boolean, just in case
-    protected final ListenerList<SessionListener> listeners = new ListenerList<>();
+    protected final ListenerList<SessionListener<ID>> listeners = new ListenerList<>();
     protected final BlockingDeque<Packet> outboundPacketQueue;
-    protected SessionID sessionID;
+    protected ID sessionID;
     protected long lastKeepAlive;
 
     public TcpSession(Socket socket) {
@@ -39,12 +39,12 @@ public class TcpSession implements Session {
     }
 
     @Override
-    public List<SessionListener> getListeners() {
+    public List<SessionListener<ID>> getListeners() {
         return listeners.clone();
     }
 
     @Override
-    public void addListener(SessionListener sessionListener) {
+    public void addListener(SessionListener<ID> sessionListener) {
         listeners.addListener(sessionListener);
     }
 
@@ -55,7 +55,7 @@ public class TcpSession implements Session {
     }
 
     @Override
-    public SessionID getID() {
+    public ID getID() {
         return sessionID;
     }
 

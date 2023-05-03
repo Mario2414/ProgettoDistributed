@@ -1,5 +1,7 @@
 package progetto;
 
-public interface DistributedNodeListener {
-    void onShapshotCompleted(DistributedNode node, Snapshot snapshot);
+import java.io.Serializable;
+
+public interface DistributedNodeListener<ID extends Comparable<ID> & Serializable> {
+    void onShapshotCompleted(DistributedNode<ID> node, Snapshot<ID> snapshot);
 }

@@ -1,18 +1,5 @@
 package example;
 
-import progetto.DistributedNode;
-import progetto.Server;
-import progetto.Session;
-import progetto.packet.Packet;
-import progetto.session.ServerListener;
-import progetto.session.SessionID;
-import progetto.session.SessionListener;
-import progetto.state.State;
-import progetto.tcp.TcpClientSession;
-import progetto.tcp.TcpServer;
-import progetto.tcp.TcpSession;
-
-import java.util.UUID;
 /**
 class SessionIDTest implements SessionID {
     private UUID uuid;

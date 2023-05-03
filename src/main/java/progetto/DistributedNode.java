@@ -1,7 +1,6 @@
 package progetto;
 
 import progetto.packet.Packet;
-import progetto.session.SessionID;
 import progetto.session.SessionListener;
 import progetto.session.packet.SnapshotAckPacket;
 import progetto.session.packet.SnapshotMarkerPacket;
@@ -13,12 +12,12 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
-public class DistributedNode implements SessionListener {
-    private final Queue<Session> sessions;
-    private final Map<UUID, Snapshot> snapshots;
+public class DistributedNode<ID extends Comparable<ID> & Serializable> implements SessionListener<ID> {
+    private final Queue<Session<ID>> sessions;
+    private final Map<UUID, Snapshot<ID>> snapshots;
     private State state;
-    private final Queue<Snapshot> activeSnapshots;
-    private final ListenerList<DistributedNodeListener> listeners;
+    private final Queue<Snapshot<ID>> activeSnapshots;
+    private final ListenerList<DistributedNodeListener<ID>> listeners;
 
     // Constructor for creating a distributed node with a state object
     public DistributedNode(State state) {
@@ -29,7 +28,7 @@ public class DistributedNode implements SessionListener {
         this.state = state;
     }
 
-    public DistributedNode(File snapshotFile, List<Session> sessions) throws IOException, ClassNotFoundException {
+    public DistributedNode(File snapshotFile, List<Session<ID>> sessions) throws IOException, ClassNotFoundException {
         this.sessions = new ConcurrentLinkedQueue<>(sessions);
         this.snapshots = new ConcurrentHashMap<>();
         this.activeSnapshots = new ConcurrentLinkedQueue<>();
@@ -44,9 +43,9 @@ public class DistributedNode implements SessionListener {
         UUID snapshotID = (UUID) in.readObject();
         this.state = (State) in.readObject();
         int size = in.readInt();
-        Map<SessionID, Collection<Packet>> packetsToRestore = new HashMap<>();
+        Map<ID, Collection<Packet>> packetsToRestore = new HashMap<>();
         for(int i = 0; i < size; i++) {
-            SessionID id = (SessionID) in.readObject();
+            ID id = (ID) in.readObject();
             int packetsSize = in.readInt();
             List<Packet> packets = new ArrayList<>();
             for(int packetCount = 0; packetCount < packetsSize; packetCount++) {
@@ -56,7 +55,7 @@ public class DistributedNode implements SessionListener {
             packetsToRestore.put(id, packets);
         }
 
-        for(Session session : sessions) {
+        for(Session<ID> session : sessions) {
             if(packetsToRestore.containsKey(session.getID())) {
                 Collection<Packet> packets = packetsToRestore.get(session.getID());
                 for(Packet packet : packets) {
@@ -68,24 +67,24 @@ public class DistributedNode implements SessionListener {
     }
 
     // Add a session to the distributed node
-    public void addSession(Session session) {
+    public void addSession(Session<ID> session) {
         sessions.add(session);
         session.addListener(this);
     }
 
-    public void addListener(DistributedNodeListener listener) {
+    public void addListener(DistributedNodeListener<ID> listener) {
         listeners.addListener(listener);
     }
 
     //return a copy of session
-    public Queue<Session> getSessions() {
+    public Queue<Session<ID>> getSessions() {
         return new ConcurrentLinkedQueue<>(sessions);
     }
 
     public void snapshot() {
         try {
             UUID uuid = UUID.randomUUID();
-            Snapshot snapshot = new Snapshot(uuid, state.clone(), sessions);
+            Snapshot<ID> snapshot = new Snapshot<>(uuid, state.clone(), sessions);
             snapshots.put(uuid, snapshot);
             sessions.forEach(s -> s.sendPacket(new SnapshotMarkerPacket(uuid)));
             activeSnapshots.add(snapshot);
@@ -95,7 +94,7 @@ public class DistributedNode implements SessionListener {
     }
 
     @Override
-    public void onPacketReceived(Session session, Packet packet) {
+    public void onPacketReceived(Session<ID> session, Packet packet) {
         if(packet instanceof SnapshotMarkerPacket) {
             UUID uuid = ((SnapshotMarkerPacket) packet).getUuid();
             boolean firstTime;
@@ -104,7 +103,7 @@ public class DistributedNode implements SessionListener {
             synchronized (this) {
                 firstTime = !snapshots.containsKey(uuid);
                 if(firstTime) {
-                    Snapshot snapshot = new Snapshot(uuid, state.clone(), sessions.stream().filter(s -> s.getID().equals(session.getID())).toList());
+                    Snapshot<ID> snapshot = new Snapshot<>(uuid, state.clone(), sessions.stream().filter(s -> s.getID().equals(session.getID())).toList());
                     if(snapshot.isSnapshotComplete()) {
                         listeners.forEachListeners(l -> l.onShapshotCompleted(this, snapshot));
                     } else {
@@ -126,7 +125,7 @@ public class DistributedNode implements SessionListener {
         } else if(packet instanceof SnapshotAckPacket) {
             UUID snapshotID = ((SnapshotAckPacket) packet).getUuid();
             if(snapshots.containsKey(snapshotID)) {
-                Snapshot snapshot = snapshots.get(snapshotID);
+                Snapshot<ID> snapshot = snapshots.get(snapshotID);
                 //synchronization block is needed to guarantee that snapshot complete is called only once
                 synchronized (this) {
                     snapshot.markSessionAsDone(session.getID());
@@ -139,7 +138,7 @@ public class DistributedNode implements SessionListener {
             }
         }
 
-        for(Snapshot snapshot: activeSnapshots) {
+        for(Snapshot<ID> snapshot: activeSnapshots) {
             if(snapshot.isSessionPending(session.getID())) {
                 snapshot.recordPacket(session.getID(), packet);
             }
@@ -148,17 +147,17 @@ public class DistributedNode implements SessionListener {
     
 
     @Override
-    public void onPacketSent(Session session, Packet packet) {
+    public void onPacketSent(Session<ID> session, Packet packet) {
 
     }
 
     @Override
-    public void onConnected(Session session) {
+    public void onConnected(Session<ID> session) {
 
     }
 
     @Override
-    public void onDisconnection(Session session, Throwable exception) {
+    public void onDisconnection(Session<ID> session, Throwable exception) {
         sessions.remove(session);
     }
 }

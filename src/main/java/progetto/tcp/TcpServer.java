@@ -4,30 +4,30 @@ import progetto.Server;
 import progetto.Session;
 import progetto.packet.Packet;
 import progetto.session.ServerListener;
-import progetto.session.SessionID;
 import progetto.session.SessionListener;
 import progetto.session.packet.KeepAlivePingPacket;
 import progetto.session.packet.KeepAlivePongPacket;
 import progetto.utils.ListenerList;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class TcpServer implements Server, SessionListener {
+public class TcpServer<ID extends Comparable<ID> & Serializable> implements Server<ID>, SessionListener<ID> {
     private final Thread thread;
     private final Thread keepAliveThread;
     private final String host;
     private final int port;
     private final ServerSocket server;
     private volatile boolean run = false;
-    private final ListenerList<ServerListener> listeners = new ListenerList<>();
+    private final ListenerList<ServerListener<ID>> listeners = new ListenerList<>();
 
-    private final List<Session> activeSessions = new LinkedList<>();
-    private Map<SessionID, Long> lastKeepAlive = new ConcurrentHashMap<>();
+    private final List<Session<ID>> activeSessions = new LinkedList<>();
+    private final Map<ID, Long> lastKeepAlive = new ConcurrentHashMap<>();
     private final long maxKeepAliveTimeGap = 5000; //5 secs
 
     public TcpServer(String host, int port) {
@@ -69,12 +69,12 @@ public class TcpServer implements Server, SessionListener {
     }
 
     @Override
-    public void addServerListener(ServerListener listener) {
+    public void addServerListener(ServerListener<ID> listener) {
         listeners.addListener(listener);
     }
 
     @Override
-    public List<ServerListener> getServerListeners() {
+    public List<ServerListener<ID>> getServerListeners() {
         return listeners.clone();
     }
 
@@ -83,7 +83,7 @@ public class TcpServer implements Server, SessionListener {
             server.bind(new InetSocketAddress(host, port));
             while (run) {
                 Socket socket = server.accept();
-                Session session = new TcpServerSession(socket);
+                Session<ID> session = new TcpServerSession<ID>(socket);
                 lastKeepAlive.put(session.getID(), System.currentTimeMillis());
                 synchronized (activeSessions) {
                     activeSessions.add(session);
@@ -104,9 +104,9 @@ public class TcpServer implements Server, SessionListener {
                 synchronized (activeSessions) {
                     long time = System.currentTimeMillis();
 
-                    Iterator<Session> it = activeSessions.iterator();
+                    Iterator<Session<ID>> it = activeSessions.iterator();
                     while (it.hasNext()) {
-                        Session session = it.next();
+                        Session<ID> session = it.next();
                         if (time - lastKeepAlive.get(session.getID()) > maxKeepAliveTimeGap * 3) {
                             it.remove();
                             lastKeepAlive.remove(session.getID());
@@ -126,31 +126,31 @@ public class TcpServer implements Server, SessionListener {
 
     //Session Listener methods
     @Override
-    public void onPacketReceived(Session session, Packet packet) {
+    public void onPacketReceived(Session<ID> session, Packet packet) {
         if(packet instanceof KeepAlivePongPacket) {
             lastKeepAlive.put(session.getID(), ((KeepAlivePongPacket) packet).getTime());
         }
     }
 
     @Override
-    public void onPacketSent(Session session, Packet packet) {
+    public void onPacketSent(Session<ID> session, Packet packet) {
 
     }
 
     @Override
-    public void onConnected(Session session) {
+    public void onConnected(Session<ID> session) {
 
     }
 
     @Override
-    public List<Session> getActiveSessions() {
+    public List<Session<ID>> getActiveSessions() {
         synchronized (this) {
             return new ArrayList<>(activeSessions);
         }
     }
 
     @Override
-    public void onDisconnection(Session session, Throwable exception) {
+    public void onDisconnection(Session<ID> session, Throwable exception) {
         listeners.forEachListeners(l -> l.onSessionClosed(this, session));
         lastKeepAlive.remove(session.getID());
         synchronized (activeSessions) {

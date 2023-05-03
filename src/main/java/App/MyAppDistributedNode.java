@@ -10,20 +10,20 @@ import java.io.File;
 import java.io.IOException;
 import java.util.List;
 
-public class MyAppDistributedNode extends DistributedNode implements DistributedNodeListener {
+public class MyAppDistributedNode extends DistributedNode<Integer> implements DistributedNodeListener<Integer> {
 
     public MyAppDistributedNode(State state) {
         super(state);
         this.addListener(this);
     }
 
-    public MyAppDistributedNode(File snapshotFile, List<Session> sessions) throws IOException, ClassNotFoundException {
+    public MyAppDistributedNode(File snapshotFile, List<Session<Integer>> sessions) throws IOException, ClassNotFoundException {
         super(snapshotFile, sessions);
         this.addListener(this);
     }
 
     @Override
-    public void onShapshotCompleted(DistributedNode node, Snapshot snapshot) {
+    public void onShapshotCompleted(DistributedNode<Integer> node, Snapshot<Integer> snapshot) {
         snapshot.writeToFile(new File("latest.snapshot"));
     }
 }

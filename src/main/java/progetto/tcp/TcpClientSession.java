@@ -1,16 +1,16 @@
 package progetto.tcp;
 
-import progetto.session.SessionID;
 import progetto.session.packet.ClientGreetPacket;
 
+import java.io.Serializable;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 
-public class TcpClientSession extends TcpSession {
+public class TcpClientSession<ID extends Comparable<ID> & Serializable> extends TcpSession<ID> {
     private final String host;
     private final int port;
 
-    public TcpClientSession(SessionID sessionID, String host, int port) {
+    public TcpClientSession(ID sessionID, String host, int port) {
         super(new Socket());
         this.sessionID = sessionID;
         this.host = host;

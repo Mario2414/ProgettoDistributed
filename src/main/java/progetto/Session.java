@@ -1,20 +1,19 @@
 package progetto;
 
 import progetto.packet.Packet;
-import progetto.session.SessionID;
 import progetto.session.SessionListener;
 
+import java.io.Serializable;
 import java.util.List;
-import java.util.UUID;
 
-public interface Session {
-    List<SessionListener> getListeners();
-    void addListener(SessionListener session);
+public interface Session<ID extends Comparable<ID> & Serializable> {
+    List<SessionListener<ID>> getListeners();
+    void addListener(SessionListener<ID> session);
     boolean isConnected();
     void disconnect();
 
     void sendPacket(Packet packet);
 
     void start();
-    SessionID getID();
+    ID getID();
 }

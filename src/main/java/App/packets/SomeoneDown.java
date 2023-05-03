@@ -1,7 +1,6 @@
 package App.packets;
 
 import progetto.packet.Packet;
-import progetto.session.SessionID;
 
 import java.util.UUID;
 

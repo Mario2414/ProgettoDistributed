@@ -24,7 +24,7 @@ public class App {
     private static String[] ips ;
     private static int[] ports ;
 
-    private static ConcurrentLinkedQueue<Session> outgoingLinks = new ConcurrentLinkedQueue<>(); //Accesso in maniera concorrente nei listener
+    private static ConcurrentLinkedQueue<Session<Integer>> outgoingLinks = new ConcurrentLinkedQueue<>(); //Accesso in maniera concorrente nei listener
 
     private static ConcurrentLinkedQueue<Integer> notConnectedNodes = new ConcurrentLinkedQueue<>(); //acceddo in maniera concorrente nei listener
 
@@ -55,16 +55,16 @@ public class App {
         }
 
         System.out.println("Starting server...");
-        Server server = new TcpServer("localhost", 8081);
+        Server<Integer> server = new TcpServer<Integer>("localhost", 8081);
         server.bind();
 
-        server.addServerListener(new ServerListener() {
+        server.addServerListener(new ServerListener<Integer>() {
             @Override
-            public void onSessionAccepted(Server server, Session session) {
+            public void onSessionAccepted(Server<Integer> server, Session<Integer> session) {
                 node.addSession(session);
-                session.addListener(new SessionListener() {
+                session.addListener(new SessionListener<Integer>() {
                     @Override
-                    public void onPacketReceived(Session session, Packet packet) {
+                    public void onPacketReceived(Session<Integer> session, Packet packet) {
                         if (packet instanceof ArrivingGoods) {
                             state.refreshWorkingOn(((ArrivingGoods) packet).getAmount() * parameters.getMultiplier());
                             try {
@@ -83,17 +83,17 @@ public class App {
                     }
 
                     @Override
-                    public void onPacketSent(Session session, Packet packet) {
+                    public void onPacketSent(Session<Integer> session, Packet packet) {
                     }
 
                     @Override
-                    public void onConnected(Session session) {
-                        System.out.println("new node: " + ((TcpServerSession) session).getHostAddress() + "connected to the server");
+                    public void onConnected(Session<Integer> session) {
+                        System.out.println("new node: " + ((TcpServerSession<Integer>) session).getHostAddress() + "connected to the server");
                     }
 
                     @Override
-                    public void onDisconnection(Session session, Throwable exception) {
-                        SomeoneDown recoveryMessage = new SomeoneDown(((TcpServerSession) session).getHostAddress());
+                    public void onDisconnection(Session<Integer> session, Throwable exception) {
+                        SomeoneDown recoveryMessage = new SomeoneDown(((TcpServerSession<Integer>) session).getHostAddress());
                         recoveryPackets.add(recoveryMessage);
                         sendToAll(recoveryMessage);
 
@@ -104,12 +104,12 @@ public class App {
             }
 
             @Override
-            public void onSessionClosed(Server server, Session session) {
+            public void onSessionClosed(Server<Integer> server, Session<Integer> session) {
 
             }
 
             @Override
-            public void onServerClosed(Server server, Throwable t) {
+            public void onServerClosed(Server<Integer> server, Throwable t) {
 
             }
         });
@@ -302,11 +302,11 @@ public class App {
 
 
     private static void connectTo(int id){
-        TcpClientSession session = new TcpClientSession(new SessionIDTest2(id), ips[id], ports[id]);
+        TcpClientSession<Integer> session = new TcpClientSession<Integer>(id, ips[id], ports[id]);
 
-        session.addListener(new SessionListener() {
+        session.addListener(new SessionListener<Integer>() {
             @Override
-            public void onPacketReceived(Session session, Packet packet) {
+            public void onPacketReceived(Session<Integer> session, Packet packet) {
                 if(packet instanceof SomeoneDown){
                     if(!recoveryPackets.contains(packet)){
                         recoveryPackets.add(packet);
@@ -317,14 +317,14 @@ public class App {
             }
 
             @Override
-            public void onPacketSent(Session session, Packet packet) {
+            public void onPacketSent(Session<Integer> session, Packet packet) {
                 if(packet instanceof ArrivingGoods) {
                     state.refreshAfterSent(((ArrivingGoods) packet).getAmount());
                 }
             }
 
             @Override
-            public void onConnected(Session session) {
+            public void onConnected(Session<Integer> session) {
                 System.out.println("session " + session.getID() + " connessa");
                 node.addSession(session);
                 outgoingLinks.add(session);
@@ -335,14 +335,14 @@ public class App {
             }
 
             @Override
-            public void onDisconnection(Session session, Throwable exception) {
+            public void onDisconnection(Session<Integer> session, Throwable exception) {
                 //recovery part
                 System.out.println("session " + session.getID() + " disconnessa");
                 outgoingLinks.remove(session);
                 notConnectedNodes.add(id);
                 ableToSend = false;
 
-                SomeoneDown recoveryMessage = new SomeoneDown(ips[((SessionIDTest2) (session.getID())).getID()]);
+                SomeoneDown recoveryMessage = new SomeoneDown(ips[session.getID()]);
                 sendToOut(recoveryMessage);
                 System.exit(1);
             }
@@ -363,22 +363,22 @@ public class App {
                 }
             }
         }
-        for (Session a : outgoingLinks) {
+        for (Session<Integer> a : outgoingLinks) {
             proceedPacket(packet, a);
         }
     }
 
     public static void sendToAll(Packet packet) {
-        Queue<Session> nodeSessions = node.getSessions();
-        for(Session session : nodeSessions){
+        Queue<Session<Integer>> nodeSessions = node.getSessions();
+        for(Session<Integer> session : nodeSessions){
             session.sendPacket(packet);
         }
     }
 
-    public static void proceedPacket(Packet packet, Session session){
+    public static void proceedPacket(Packet packet, Session<Integer> session){
         if(packet instanceof ArrivingGoods){
             float temp = (((ArrivingGoods) packet).getAmount());
-            float newAmount = temp * parameters.getMultiplier() * (parameters.getNodePercentages()[((SessionIDTest2) session).getID()]);
+            float newAmount = temp * parameters.getMultiplier() * (parameters.getNodePercentages()[session.getID()]);
             session.sendPacket(new ArrivingGoods(newAmount));
         }
         else{
