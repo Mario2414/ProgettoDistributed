@@ -7,19 +7,23 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 public class Snapshot<ID extends Comparable<ID> & Serializable> {
     private final UUID snapshotID;
+
+    private final LocalDateTime date;
     private final State state;
     private final Map<ID, Collection<Packet>> recordedPackets;
     private final HashSet<ID> pendingSessions;
 
     // Constructor for creating a snapshot with a unique snapshotID, a state object, and a collection of sessions
-    public Snapshot(UUID snapshotID, State state, Collection<Session<ID>> sessions) {
+    public Snapshot(UUID snapshotID, LocalDateTime date, State state, Collection<Session<ID>> sessions) {
         this.snapshotID = snapshotID;
+        this.date = date;
         this.recordedPackets = new ConcurrentHashMap<>();
         this.pendingSessions = sessions.stream().map(Session::getID).collect(Collectors.toCollection(HashSet::new));
         this.state = state;
@@ -33,6 +37,7 @@ public class Snapshot<ID extends Comparable<ID> & Serializable> {
         try {
             ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(file));
             out.writeObject(snapshotID);
+            out.writeObject(date);
             out.writeObject(state);
             out.writeInt(recordedPackets.size());
             for (Map.Entry<ID, Collection<Packet>> packets : recordedPackets.entrySet()) {
@@ -53,6 +58,10 @@ public class Snapshot<ID extends Comparable<ID> & Serializable> {
     // Get the snapshot ID
     public UUID getSnapshotID() {
         return snapshotID;
+    }
+
+    public LocalDateTime getDate() {
+        return date;
     }
 
     // Check if a session is pending in the snapshot

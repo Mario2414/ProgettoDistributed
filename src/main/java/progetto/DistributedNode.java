@@ -8,9 +8,20 @@ import progetto.state.State;
 import progetto.utils.ListenerList;
 
 import java.io.*;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+
+/*
+* TODO
+*  Problem with concurrency:
+* Le operazioni sullo state risultano asincrone (le varie session operano su thread diversi).
+* Si potrebbe scaricare l'onore di rendere di rendere lo state thread safe all'utente, ma serve rendere anche
+* il deep copy dello state (durante il write dello snapshot) thread safe
+* Opzione A: rendere tutto single threaded
+* Opzione B: pensare a un modo per rendere il write dello snapshot thread safe
+* */
 
 public class DistributedNode<ID extends Comparable<ID> & Serializable> implements SessionListener<ID> {
     private final Queue<Session<ID>> sessions;
@@ -84,9 +95,10 @@ public class DistributedNode<ID extends Comparable<ID> & Serializable> implement
     public void snapshot() {
         try {
             UUID uuid = UUID.randomUUID();
-            Snapshot<ID> snapshot = new Snapshot<>(uuid, state.clone(), sessions);
+            LocalDateTime date = LocalDateTime.now();
+            Snapshot<ID> snapshot = new Snapshot<>(uuid, date, state.clone(), sessions);
             snapshots.put(uuid, snapshot);
-            sessions.forEach(s -> s.sendPacket(new SnapshotMarkerPacket(uuid)));
+            sessions.forEach(s -> s.sendPacket(new SnapshotMarkerPacket(uuid, date)));
             activeSnapshots.add(snapshot);
         } catch (Exception e) {
             e.printStackTrace();
@@ -103,7 +115,7 @@ public class DistributedNode<ID extends Comparable<ID> & Serializable> implement
             synchronized (this) {
                 firstTime = !snapshots.containsKey(uuid);
                 if(firstTime) {
-                    Snapshot<ID> snapshot = new Snapshot<>(uuid, state.clone(), sessions.stream().filter(s -> s.getID().equals(session.getID())).toList());
+                    Snapshot<ID> snapshot = new Snapshot<>(uuid, ((SnapshotMarkerPacket) packet).getDate(), state.clone(), sessions.stream().filter(s -> s.getID().equals(session.getID())).toList());
                     if(snapshot.isSnapshotComplete()) {
                         listeners.forEachListeners(l -> l.onShapshotCompleted(this, snapshot));
                     } else {
