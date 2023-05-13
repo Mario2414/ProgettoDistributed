@@ -29,11 +29,11 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 * */
 
 public class DistributedNode<ID extends Comparable<ID> & Serializable> implements SessionListener<ID> {
-    private final Queue<Session<ID>> sessions;
-    private final Map<UUID, Snapshot<ID>> snapshots;
-    private State state;
-    private final Queue<Snapshot<ID>> activeSnapshots;
-    private final ListenerList<DistributedNodeListener<ID>> listeners;
+    protected final Queue<Session<ID>> sessions;
+    protected final Map<UUID, Snapshot<ID>> snapshots;
+    protected State state;
+    protected final Queue<Snapshot<ID>> activeSnapshots;
+    protected final ListenerList<DistributedNodeListener<ID>> listeners;
 
     // Constructor for creating a distributed node with a state object
     public DistributedNode(State state) {

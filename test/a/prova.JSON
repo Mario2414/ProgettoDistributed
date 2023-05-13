@@ -1,0 +1,13 @@
+{
+  "multiplier": 1.5,
+  "server" : null,
+  "nodes": [
+    {
+      "id": 1,
+      "ip": "localhost",
+      "port": 8081,
+      "percentage": 0.5
+    }
+  ],
+  "productionTime": 1
+}

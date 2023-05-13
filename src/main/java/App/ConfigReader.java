@@ -1,15 +1,49 @@
 package App;
 
 import java.io.FileReader;
+import java.util.ArrayList;
+import java.util.List;
+
 import com.google.gson.Gson;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+
+class ConfigSession {
+    private int id;
+    private String ip;
+    private int port;
+
+    private float percentage;
+
+    public ConfigSession(int id, String ip, int port, float percentage) {
+        this.id = id;
+        this.ip = ip;
+        this.port = port;
+        this.percentage = percentage;
+    }
+
+    public int getId() {
+        return id;
+    }
+
+    public float getPercentage() {
+        return percentage;
+    }
+
+    public String getIp() {
+        return ip;
+    }
+
+    public int getPort() {
+        return port;
+    }
+}
 
 public class ConfigReader {
     private float multiplier;
-    private int numOfNodes;
-    private String[] nodeIPs;
-    private int[] nodePorts;
-    private float[] nodePercentages;
+
+    private ConfigSession server;
+    private List<ConfigSession> sessions = new ArrayList<ConfigSession>();
     private long productionTime;
 
     public ConfigReader(String fileName) throws Exception {
@@ -20,22 +54,31 @@ public class ConfigReader {
         this.multiplier = jsonObject.get("multiplier").getAsFloat();
 
         // Get number of nodes
-        this.numOfNodes = jsonObject.get("numOfNodes").getAsInt();
+        if(!jsonObject.get("server").isJsonNull()) {
+            server = parseSession(jsonObject.get("server").getAsJsonObject());
+        }
 
         // Get node information
-        this.nodeIPs = new String[numOfNodes];
-        this.nodePorts = new int[numOfNodes];
-        this.nodePercentages = new float[numOfNodes];
+        JsonArray clientNodes = jsonObject.getAsJsonArray("nodes");
 
-        for (int i = 0; i < numOfNodes; i++) {
-            JsonObject node = jsonObject.getAsJsonArray("nodes").get(i).getAsJsonObject();
-            this.nodeIPs[i] = node.get("ip").getAsString();
-            this.nodePorts[i] = node.get("port").getAsInt();
-            this.nodePercentages[i] = node.get("percentage").getAsFloat();
+        for (int i = 0; i < clientNodes.size(); i++) {
+            sessions.add(parseSession(clientNodes.get(i).getAsJsonObject()));
         }
 
         // Get production time
         this.productionTime = jsonObject.get("productionTime").getAsLong();
+    }
+
+    private ConfigSession parseSession(JsonObject node) {
+        int id = node.get("id").getAsInt();
+        String nodeIPs = node.get("ip").getAsString();
+        int nodePorts = node.get("port").getAsInt();
+        float nodePercentages = node.get("percentage").getAsFloat();
+        return new ConfigSession(id, nodeIPs, nodePorts, nodePercentages);
+    }
+
+    public ConfigSession getServer() {
+        return server;
     }
 
     public float getMultiplier() {
@@ -43,28 +86,14 @@ public class ConfigReader {
     }
 
     public int getNumOfNodes() {
-        return numOfNodes;
+        return sessions.size();
     }
 
-    public String[] getNodeIPs() {
-        return nodeIPs;
-    }
-
-    public int[] getNodePorts() {
-        return nodePorts;
-    }
-
-    public float[] getNodePercentages() {
-        return nodePercentages;
+    public List<ConfigSession> getClientSessions() {
+        return sessions;
     }
 
     public long getProductionTime() {
         return productionTime;
     }
-
-
-
-
-
-
 }

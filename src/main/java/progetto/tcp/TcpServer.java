@@ -84,7 +84,7 @@ public class TcpServer<ID extends Comparable<ID> & Serializable> implements Serv
             while (run) {
                 Socket socket = server.accept();
                 Session<ID> session = new TcpServerSession<ID>(socket);
-                lastKeepAlive.put(session.getID(), System.currentTimeMillis());
+                //TODO lastKeepAlive.put(session.getID(), System.currentTimeMillis());
                 synchronized (activeSessions) {
                     activeSessions.add(session);
                 }

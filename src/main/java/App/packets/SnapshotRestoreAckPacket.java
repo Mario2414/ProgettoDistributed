@@ -4,10 +4,10 @@ import progetto.packet.Packet;
 
 import java.util.UUID;
 
-public class SnapshotRestorePacket implements Packet {
+public class SnapshotRestoreAckPacket implements Packet {
     private final UUID snasphotRestoreId;
 
-    public SnapshotRestorePacket(UUID snasphotRestoreId) {
+    public SnapshotRestoreAckPacket(UUID snasphotRestoreId) {
         this.snasphotRestoreId = snasphotRestoreId;
     }
 

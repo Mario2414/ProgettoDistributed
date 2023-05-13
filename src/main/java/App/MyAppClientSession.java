@@ -5,9 +5,14 @@ import progetto.packet.Packet;
 import progetto.session.SessionListener;
 import progetto.tcp.TcpClientSession;
 
+import java.io.IOException;
+
 public class MyAppClientSession extends TcpClientSession<Integer> implements SessionListener<Integer> {
-    public MyAppClientSession(Integer sessionID, String host, int port) {
+    private float percentage;
+
+    public MyAppClientSession(Integer sessionID, String host, int port, float percentage) throws IOException {
         super(sessionID, host, port);
+        this.percentage = percentage;
     }
 
     @Override
@@ -28,5 +33,10 @@ public class MyAppClientSession extends TcpClientSession<Integer> implements Ses
     @Override
     public void onDisconnection(Session<Integer> session, Throwable exception) {
 
+    }
+
+
+    public float getPercentage() {
+        return percentage;
     }
 }

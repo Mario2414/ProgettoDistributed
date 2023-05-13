@@ -32,96 +32,16 @@ public class App {
 
     private static MyAppDistributedNode node;
 
-    private static ConfigReader parameters;
-
     public static void main(String[] args) {
         node = new MyAppDistributedNode(state);
 
-        try {
-            System.out.println("Reading config parameters");
-            parameters = new ConfigReader("C:/Users/Mario/Documents/prova.JSON");
-            System.out.println("Reading completed");
-        } catch (Exception e) {
-            System.out.println("Error reading config file");
-            throw new RuntimeException(e);
-        }
-
-        numberOfNodes = parameters.getNumOfNodes();
-        ips = parameters.getNodeIPs();
-        ports = parameters.getNodePorts();
-
-        for(int i=0; i < numberOfNodes; i++){
-            notConnectedNodes.add(i);
-        }
-
-        System.out.println("Starting server...");
-        Server<Integer> server = new TcpServer<Integer>("localhost", 8081);
-        server.bind();
-
-        server.addServerListener(new ServerListener<Integer>() {
-            @Override
-            public void onSessionAccepted(Server<Integer> server, Session<Integer> session) {
-                node.addSession(session);
-                session.addListener(new SessionListener<Integer>() {
-                    @Override
-                    public void onPacketReceived(Session<Integer> session, Packet packet) {
-                        if (packet instanceof ArrivingGoods) {
-                            state.refreshWorkingOn(((ArrivingGoods) packet).getAmount() * parameters.getMultiplier());
-                            try {
-                                Thread.sleep(1000*(parameters.getProductionTime()));
-                            } catch (InterruptedException e) {
-                                e.printStackTrace();
-                            }
-                            sendToOut(packet);
-                        } else if (packet instanceof SomeoneDown){
-                            if(!recoveryPackets.contains(packet)){
-                                recoveryPackets.add(packet);
-                                sendToAll(packet);
-                                System.exit(1);
-                            }
-                        }
-                    }
-
-                    @Override
-                    public void onPacketSent(Session<Integer> session, Packet packet) {
-                    }
-
-                    @Override
-                    public void onConnected(Session<Integer> session) {
-                        System.out.println("new node: " + ((TcpServerSession<Integer>) session).getHostAddress() + "connected to the server");
-                    }
-
-                    @Override
-                    public void onDisconnection(Session<Integer> session, Throwable exception) {
-                        SomeoneDown recoveryMessage = new SomeoneDown(((TcpServerSession<Integer>) session).getHostAddress());
-                        recoveryPackets.add(recoveryMessage);
-                        sendToAll(recoveryMessage);
-
-                        System.exit(1);
-                    }
-                });
-
-            }
-
-            @Override
-            public void onSessionClosed(Server<Integer> server, Session<Integer> session) {
-
-            }
-
-            @Override
-            public void onServerClosed(Server<Integer> server, Throwable t) {
-
-            }
-        });
-
-        System.out.println("Server started");
-
+        System.out.println("Node started");
 
         Scanner stdin = new Scanner(System.in);
         boolean retry;
         int numInput = 1;
 
-        tryToConnect2();
+        //tryToConnect2();
 
         /*
         System.out.println("To connect to predefined clients type 1");
@@ -144,9 +64,8 @@ public class App {
 
         while(true) {
             System.out.println("To add manual goods press 1");
-            System.out.println("To clean recovery history press 2");
-            System.out.println("To start a snapshot press 3");
-
+            System.out.println("To start a snapshot press 2");
+            System.out.println("To restore from a snapshot press 3");
             do {
                 try{
                     numInput = Integer.parseInt(stdin.nextLine());
@@ -169,41 +88,16 @@ public class App {
                         retry = true;
                     }
                 } while (retry);
-                state.refreshWorkingOn(numGoods * parameters.getMultiplier());
-                try {
-                    Thread.sleep(1000*(parameters.getProductionTime()));
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-                sendToOut(new ArrivingGoods(numGoods));
-            } else if (numInput == 2) {
-                recoveryPackets = new ConcurrentLinkedQueue<>();
-            } else if (numInput == 3){
+
+                node.sendGoods(new ArrivingGoods(numGoods));
+            } else if (numInput == 2){
                 node.snapshot();
-            } else if(numInput == 4) { //todo check if it makes sense
-                try {
-                    state = (StateApp) node.restoreSnapshot(new File("latest.snapshot"));
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                } catch (ClassNotFoundException e) {
-                    throw new RuntimeException(e);
-                }
+            } else if(numInput == 3) {
+                node.restore();
+            } else if(numInput == 4) {
+                System.out.printf(state.toString());
             }
 
-        }
-    }
-
-    public synchronized static void tryToConnect2(){
-        while(outgoingLinks.size() != numberOfNodes){
-            for(Integer a : notConnectedNodes){
-                connectTo((int) a);
-            }
-
-            try {
-                Thread.sleep(60000); //timer to wait before retrying to connect, set to 60 seconds
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
         }
     }
 
@@ -301,7 +195,7 @@ public class App {
      */
 
 
-    private static void connectTo(int id){
+    /*private static void connectTo(int id) throws IOException {
         TcpClientSession<Integer> session = new TcpClientSession<Integer>(id, ips[id], ports[id]);
 
         session.addListener(new SessionListener<Integer>() {
@@ -350,7 +244,6 @@ public class App {
         session.start();
     }
 
-
     public static void sendToOut(Packet packet){
         while(!ableToSend) { // se non sono ableToSend continua a riprovare,
             if(outgoingLinks.size() == numberOfNodes){ //altrimenti controlla che tutti i nodi siano connessi
@@ -373,18 +266,7 @@ public class App {
         for(Session<Integer> session : nodeSessions){
             session.sendPacket(packet);
         }
-    }
-
-    public static void proceedPacket(Packet packet, Session<Integer> session){
-        if(packet instanceof ArrivingGoods){
-            float temp = (((ArrivingGoods) packet).getAmount());
-            float newAmount = temp * parameters.getMultiplier() * (parameters.getNodePercentages()[session.getID()]);
-            session.sendPacket(new ArrivingGoods(newAmount));
-        }
-        else{
-            session.sendPacket(packet);
-        }
-    }
+    }*/
 }
 
 
