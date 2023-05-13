@@ -23,6 +23,11 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 * Opzione B: pensare a un modo per rendere il write dello snapshot thread safe
 * */
 
+/*
+* TODO
+*  Problem with circular networks topology
+* */
+
 public class DistributedNode<ID extends Comparable<ID> & Serializable> implements SessionListener<ID> {
     private final Queue<Session<ID>> sessions;
     private final Map<UUID, Snapshot<ID>> snapshots;
