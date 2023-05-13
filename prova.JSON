@@ -1,0 +1,17 @@
+{
+  "multiplier": 1.5,
+  "numOfNodes": 2,
+  "nodes": [
+    {
+      "ip": "192.168.1.2",
+      "port": 8081,
+      "percentage": 0.5
+    },
+    {
+      "ip": "192.168.1.3",
+      "port": 8082,
+      "percentage": 0.5
+    }
+  ],
+  "productionTime": 1
+}
