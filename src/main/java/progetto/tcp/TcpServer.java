@@ -55,7 +55,7 @@ public class TcpServer<ID extends Comparable<ID> & Serializable> implements Serv
     public void bind() {
         run = true;
         thread.start();
-        keepAliveThread.start();
+        //TODO keepAliveThread.start();
     }
 
     @Override
@@ -82,7 +82,9 @@ public class TcpServer<ID extends Comparable<ID> & Serializable> implements Serv
         try {
             server.bind(new InetSocketAddress(host, port));
             while (run) {
+                System.out.println("Accepting");
                 Socket socket = server.accept();
+                System.out.println("Accepted");
                 Session<ID> session = new TcpServerSession<ID>(socket);
                 //TODO lastKeepAlive.put(session.getID(), System.currentTimeMillis());
                 synchronized (activeSessions) {
@@ -96,6 +98,8 @@ public class TcpServer<ID extends Comparable<ID> & Serializable> implements Serv
             e.printStackTrace();
             listeners.forEachListeners(l -> l.onServerClosed(this, e));
         }
+
+        System.out.println("startServer ending");
     }
 
     private void startKeepAlive() {

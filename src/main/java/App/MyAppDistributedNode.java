@@ -16,6 +16,7 @@ import java.io.File;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 public class MyAppDistributedNode extends DistributedNode<Integer> implements DistributedNodeListener<Integer> {
     private final Map<UUID, SnapshotRestore> snapshotsRestore;
@@ -31,7 +32,7 @@ public class MyAppDistributedNode extends DistributedNode<Integer> implements Di
     public MyAppDistributedNode(StateApp state) {
         super(state);
         this.state = state;
-        outgoingLinks = new ArrayList<MyAppClientSession>();
+        outgoingLinks = new CopyOnWriteArrayList<MyAppClientSession>();
 
         snapshotsRestore = new HashMap<UUID, SnapshotRestore>();
         this.addListener(this);
@@ -50,6 +51,7 @@ public class MyAppDistributedNode extends DistributedNode<Integer> implements Di
                 do {
                     try {
                         session = new MyAppClientSession(sessionCfg.getId(), sessionCfg.getIp(), sessionCfg.getPort(), sessionCfg.getPercentage());
+                        session.connect(true);
                         outgoingLinks.add(session);
                         break;
                     } catch (Exception e) {
@@ -95,23 +97,23 @@ public class MyAppDistributedNode extends DistributedNode<Integer> implements Di
     @Override
     public void onPacketReceived(Session<Integer> session, Packet packet) {
         super.onPacketReceived(session, packet);
-        System.out.printf("Packet " + packet.getClass().getSimpleName());
+        System.out.println("Packet " + packet.getClass().getSimpleName());
 
         if(packet instanceof SnapshotRestorePacket) {
             //TODO
             UUID uuid = ((SnapshotRestorePacket) packet).getSnasphotRestoreId();
             boolean firstTime;
-            SnapshotRestore snapshot;
 
             //This block must be seen as a single atomic operation
             synchronized (this) {
                 firstTime = !snapshotsRestore.containsKey(uuid);
                 if(firstTime) {
-                    snapshot = new SnapshotRestore(uuid, Optional.of(session), sessions.stream().filter(s -> s.getID().equals(session.getID())).toList());
+                    SnapshotRestore snapshot = new SnapshotRestore(uuid, Optional.of(session), sessions.stream().filter(s -> !s.getID().equals(session.getID())).toList());
 
                     if(snapshot.isSnapshotRestoreComplete()) {
-                        snapshot.getRestoreInitiator().ifPresent(opt -> opt.sendPacket(new SnapshotRestoreAckPacket(uuid)));
+                        session.sendPacket(new SnapshotRestoreAckPacket(uuid)); //this is the initiator
                         try {
+                            System.out.println("Restoring snapshot");
                             state = (StateApp) restoreSnapshot(new File("latest.snapshot"));
                         } catch (Exception e) {
                             e.printStackTrace();
@@ -120,8 +122,6 @@ public class MyAppDistributedNode extends DistributedNode<Integer> implements Di
                     } else {
                         snapshotsRestore.put(uuid, snapshot);
                     }
-                } else {
-                    snapshot = snapshotsRestore.get(uuid);
                 }
             }
 
@@ -143,6 +143,7 @@ public class MyAppDistributedNode extends DistributedNode<Integer> implements Di
                     snapshot.markSessionAsDone(session.getID());
                     if (snapshot.isSnapshotRestoreComplete()) {
                         try {
+                            System.out.println("Restoring snapshot");
                             state = (StateApp) restoreSnapshot(new File("latest.snapshot"));
                         } catch (Exception e) {
                             e.printStackTrace();
@@ -157,9 +158,43 @@ public class MyAppDistributedNode extends DistributedNode<Integer> implements Di
         }
 
         if (packet instanceof ArrivingGoods) {
-            System.out.printf("Packet " + ((ArrivingGoods) packet).getAmount());
+            System.out.println("Packet " + ((ArrivingGoods) packet).getAmount());
             new Thread(() -> sendGoods((ArrivingGoods) packet)).start();
+        }
+    }
 
+    @Override
+    public void onDisconnection(Session<Integer> session, Throwable exception) {
+        super.onDisconnection(session, exception);
+
+        if(session instanceof MyAppClientSession) {
+            MyAppClientSession appSession = (MyAppClientSession) session;
+            outgoingLinks.remove(session);
+            System.out.println("Disconnection. Trying to recover");
+            new Thread(() -> {
+                do {
+                    try {
+                        MyAppClientSession newSess = new MyAppClientSession(appSession.getID(), appSession.getHost(), appSession.getPort(), appSession.getPercentage());
+                        newSess.connect(true);
+                        outgoingLinks.add(newSess);
+
+                        session.start();
+
+                        addSession(
+                                session
+                        );
+                        System.out.println("Recovered");
+                        break;
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                        try {
+                            Thread.sleep(1000);
+                        } catch (InterruptedException ex) {
+                            throw new RuntimeException(ex);
+                        }
+                    }
+                } while (true);
+            }).start();
         }
     }
 
@@ -187,5 +222,9 @@ public class MyAppDistributedNode extends DistributedNode<Integer> implements Di
 
     public float getMultiplier() {
         return multiplier;
+    }
+
+    public StateApp getState() {
+        return state;
     }
 }

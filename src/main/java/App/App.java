@@ -28,12 +28,10 @@ public class App {
 
     private static ConcurrentLinkedQueue<Integer> notConnectedNodes = new ConcurrentLinkedQueue<>(); //acceddo in maniera concorrente nei listener
 
-    private static StateApp state = new StateApp();
-
     private static MyAppDistributedNode node;
 
     public static void main(String[] args) {
-        node = new MyAppDistributedNode(state);
+        node = new MyAppDistributedNode(new StateApp());
 
         System.out.println("Node started");
 
@@ -95,7 +93,7 @@ public class App {
             } else if(numInput == 3) {
                 node.restore();
             } else if(numInput == 4) {
-                System.out.printf(state.toString());
+                System.out.println(node.getState().toString());
             }
 
         }

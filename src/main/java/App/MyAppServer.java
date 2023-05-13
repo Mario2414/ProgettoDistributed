@@ -15,10 +15,11 @@ import progetto.tcp.TcpServerSession;
 import java.net.Socket;
 
 public class MyAppServer extends TcpServer<Integer> implements ServerListener<Integer> {
-    MyAppDistributedNode node;
+    private final MyAppDistributedNode node;
 
     public MyAppServer(MyAppDistributedNode node, String host, int port) {
         super(host, port);
+        this.node = node;
         addServerListener(this);
     }
 

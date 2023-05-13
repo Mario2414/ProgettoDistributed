@@ -22,6 +22,7 @@ public class SnapshotRestore {
     // Check if a session is pending in the snapshot
     public boolean isSessionPending(Integer session) {
         synchronized (pendingSessions) {
+            System.out.println("isSessionPending: Missing " + pendingSessions.size());
             return pendingSessions.contains(session);
         }
     }
@@ -30,6 +31,7 @@ public class SnapshotRestore {
     public void markSessionAsDone(Integer id) {
         synchronized (pendingSessions) {
             pendingSessions.remove(id);
+            System.out.println("markSessionAsDone: Missing " + pendingSessions.size());
         }
     }
 

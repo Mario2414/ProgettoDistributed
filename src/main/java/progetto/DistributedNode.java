@@ -57,6 +57,7 @@ public class DistributedNode<ID extends Comparable<ID> & Serializable> implement
     public State restoreSnapshot(File snapshotFile)  throws IOException, ClassNotFoundException {
         ObjectInputStream in = new ObjectInputStream(new FileInputStream(snapshotFile));
         UUID snapshotID = (UUID) in.readObject();
+        LocalDateTime date = (LocalDateTime) in.readObject();
         this.state = (State) in.readObject();
         int size = in.readInt();
         Map<ID, Collection<Packet>> packetsToRestore = new HashMap<>();
@@ -120,7 +121,7 @@ public class DistributedNode<ID extends Comparable<ID> & Serializable> implement
             synchronized (this) {
                 firstTime = !snapshots.containsKey(uuid);
                 if(firstTime) {
-                    Snapshot<ID> snapshot = new Snapshot<>(uuid, ((SnapshotMarkerPacket) packet).getDate(), state.clone(), sessions.stream().filter(s -> s.getID().equals(session.getID())).toList());
+                    Snapshot<ID> snapshot = new Snapshot<>(uuid, ((SnapshotMarkerPacket) packet).getDate(), state.clone(), sessions.stream().filter(s -> !s.getID().equals(session.getID())).toList());
                     if(snapshot.isSnapshotComplete()) {
                         listeners.forEachListeners(l -> l.onShapshotCompleted(this, snapshot));
                     } else {

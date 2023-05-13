@@ -77,6 +77,7 @@ public class TcpSession<ID extends Comparable<ID> & Serializable> implements Ses
             listeners.forEachListeners(sessionListener -> sessionListener.onDisconnection(this, e));
         } finally {
             run = false;
+            outboundPacketQueue.clear();
         }
     }
 

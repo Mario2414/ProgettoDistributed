@@ -10,8 +10,9 @@ import java.io.IOException;
 public class MyAppClientSession extends TcpClientSession<Integer> implements SessionListener<Integer> {
     private float percentage;
 
-    public MyAppClientSession(Integer sessionID, String host, int port, float percentage) throws IOException {
+    public MyAppClientSession(Integer sessionID, String host, int port, float percentage) {
         super(sessionID, host, port);
+        addListener(this);
         this.percentage = percentage;
     }
 
