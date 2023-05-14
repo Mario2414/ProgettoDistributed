@@ -1,8 +1,10 @@
 package App;
 
+import App.packets.ArrivingGoods;
 import progetto.Session;
 import progetto.packet.Packet;
 import progetto.session.SessionListener;
+import progetto.state.State;
 import progetto.tcp.TcpClientSession;
 
 import java.io.IOException;
@@ -10,8 +12,12 @@ import java.io.IOException;
 public class MyAppClientSession extends TcpClientSession<Integer> implements SessionListener<Integer> {
     private float percentage;
 
-    public MyAppClientSession(Integer sessionID, String host, int port, float percentage) {
+    private StateApp state;
+
+
+    public MyAppClientSession(Integer sessionID, String host, int port, float percentage, StateApp state) {
         super(sessionID, host, port);
+        this.state = state;
         addListener(this);
         this.percentage = percentage;
     }
@@ -23,7 +29,9 @@ public class MyAppClientSession extends TcpClientSession<Integer> implements Ses
 
     @Override
     public void onPacketSent(Session<Integer> session, Packet packet) {
-
+        if(packet instanceof ArrivingGoods) {
+            state.refreshAfterSent(((ArrivingGoods) packet).getAmount());
+        }
     }
 
     @Override

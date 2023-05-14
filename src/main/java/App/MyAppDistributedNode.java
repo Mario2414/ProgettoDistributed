@@ -3,14 +3,11 @@ package App;
 import App.packets.ArrivingGoods;
 import App.packets.SnapshotRestoreAckPacket;
 import App.packets.SnapshotRestorePacket;
-import App.packets.SomeoneDown;
 import progetto.DistributedNode;
 import progetto.DistributedNodeListener;
 import progetto.Session;
 import progetto.Snapshot;
 import progetto.packet.Packet;
-import progetto.session.packet.SnapshotMarkerPacket;
-import progetto.state.State;
 
 import java.io.File;
 import java.io.IOException;
@@ -50,7 +47,7 @@ public class MyAppDistributedNode extends DistributedNode<Integer> implements Di
                 MyAppClientSession session;
                 do {
                     try {
-                        session = new MyAppClientSession(sessionCfg.getId(), sessionCfg.getIp(), sessionCfg.getPort(), sessionCfg.getPercentage());
+                        session = new MyAppClientSession(sessionCfg.getId(), sessionCfg.getIp(), sessionCfg.getPort(), sessionCfg.getPercentage(), state);
                         session.connect(true);
                         outgoingLinks.add(session);
                         break;
@@ -80,10 +77,16 @@ public class MyAppDistributedNode extends DistributedNode<Integer> implements Di
 
     public void restore() {
         try {
-            UUID uuid = UUID.randomUUID();
-            SnapshotRestore snapshot = new SnapshotRestore(uuid, Optional.empty(), sessions);
-            snapshotsRestore.put(uuid, snapshot);
-            sessions.forEach(s -> s.sendPacket(new SnapshotRestorePacket(uuid)));
+            File file = new File("latest.snapshot");
+            if (file.exists()) {
+                UUID uuid = UUID.randomUUID();
+                SnapshotRestore snapshot = new SnapshotRestore(uuid, Optional.empty(), sessions);
+                snapshotsRestore.put(uuid, snapshot);
+                sessions.forEach(s -> s.sendPacket(new SnapshotRestorePacket(uuid)));
+            } else {
+                System.out.println("No snapshot to recover!!!");
+            }
+
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -174,11 +177,11 @@ public class MyAppDistributedNode extends DistributedNode<Integer> implements Di
             new Thread(() -> {
                 do {
                     try {
-                        MyAppClientSession newSess = new MyAppClientSession(appSession.getID(), appSession.getHost(), appSession.getPort(), appSession.getPercentage());
+                        MyAppClientSession newSess = new MyAppClientSession(appSession.getID(), appSession.getHost(), appSession.getPort(), appSession.getPercentage(), state);
                         newSess.connect(true);
                         outgoingLinks.add(newSess);
 
-                        session.start();
+                        newSess.start();
 
                         addSession(
                                 session
@@ -188,7 +191,7 @@ public class MyAppDistributedNode extends DistributedNode<Integer> implements Di
                     } catch (IOException e) {
                         e.printStackTrace();
                         try {
-                            Thread.sleep(1000);
+                            Thread.sleep(5000);
                         } catch (InterruptedException ex) {
                             throw new RuntimeException(ex);
                         }

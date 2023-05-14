@@ -1,18 +1,10 @@
 package App;
 
-import App.packets.ArrivingGoods;
-import App.packets.SnapshotRestorePacket;
-import App.packets.SomeoneDown;
-import progetto.DistributedNode;
+
 import progetto.Server;
 import progetto.Session;
-import progetto.packet.Packet;
 import progetto.session.ServerListener;
-import progetto.session.SessionListener;
 import progetto.tcp.TcpServer;
-import progetto.tcp.TcpServerSession;
-
-import java.net.Socket;
 
 public class MyAppServer extends TcpServer<Integer> implements ServerListener<Integer> {
     private final MyAppDistributedNode node;

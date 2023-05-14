@@ -2,27 +2,16 @@ package App;
 
 
 import App.packets.ArrivingGoods;
-import App.packets.SomeoneDown;
+
 import progetto.*;
 import progetto.packet.Packet;
-import progetto.session.ServerListener;
-import progetto.session.SessionListener;
-import progetto.tcp.TcpClientSession;
-import progetto.tcp.TcpServer;
-import progetto.tcp.TcpServerSession;
 
-import java.io.File;
-import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 
 public class App {
-    private static boolean ableToSend = true;
     private static ConcurrentLinkedQueue<Packet> recoveryPackets = new ConcurrentLinkedQueue<>();
-    private static int numberOfNodes;
-    private static String[] ips ;
-    private static int[] ports ;
 
     private static ConcurrentLinkedQueue<Session<Integer>> outgoingLinks = new ConcurrentLinkedQueue<>(); //Accesso in maniera concorrente nei listener
 
@@ -39,31 +28,11 @@ public class App {
         boolean retry;
         int numInput = 1;
 
-        //tryToConnect2();
-
-        /*
-        System.out.println("To connect to predefined clients type 1");
-
-        do {
-            try{
-                numInput = Integer.parseInt(stdin.nextLine());
-                retry = false;
-            }catch (Exception e){
-                System.out.println("Please insert a number");
-                retry = true;
-            }
-        } while (retry);
-
-        if(numInput == 1){
-            tryToConnect2();
-        }
-
-         */
-
         while(true) {
             System.out.println("To add manual goods press 1");
             System.out.println("To start a snapshot press 2");
             System.out.println("To restore from a snapshot press 3");
+            System.out.println("To print the state press 4");
             do {
                 try{
                     numInput = Integer.parseInt(stdin.nextLine());
