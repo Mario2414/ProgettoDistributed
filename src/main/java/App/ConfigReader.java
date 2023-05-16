@@ -41,7 +41,7 @@ class ConfigSession {
 
 public class ConfigReader {
     private float multiplier;
-
+    private int batch;
     private ConfigSession server;
     private List<ConfigSession> sessions = new ArrayList<ConfigSession>();
     private long productionTime;
@@ -53,28 +53,37 @@ public class ConfigReader {
         // Get multiplier
         this.multiplier = jsonObject.get("multiplier").getAsFloat();
 
+        //get batch to elaborate per time
+        this.batch = jsonObject.get("batch").getAsInt();
+
         // Get number of nodes
         if(!jsonObject.get("server").isJsonNull()) {
-            server = parseSession(jsonObject.get("server").getAsJsonObject());
+            server = parseSessionServer(jsonObject.get("server").getAsJsonObject());
         }
 
         // Get node information
         JsonArray clientNodes = jsonObject.getAsJsonArray("nodes");
 
         for (int i = 0; i < clientNodes.size(); i++) {
-            sessions.add(parseSession(clientNodes.get(i).getAsJsonObject()));
+            sessions.add(parseSessionNode(clientNodes.get(i).getAsJsonObject()));
         }
 
         // Get production time
         this.productionTime = jsonObject.get("productionTime").getAsLong();
     }
 
-    private ConfigSession parseSession(JsonObject node) {
+    private ConfigSession parseSessionNode(JsonObject node) {
         int id = node.get("id").getAsInt();
         String nodeIPs = node.get("ip").getAsString();
         int nodePorts = node.get("port").getAsInt();
         float nodePercentages = node.get("percentage").getAsFloat();
         return new ConfigSession(id, nodeIPs, nodePorts, nodePercentages);
+    }
+
+    private ConfigSession parseSessionServer(JsonObject node) {
+        String ip = node.get("ip").getAsString();
+        int port = node.get("serverPort").getAsInt();
+        return new ConfigSession(0, ip, port, 0);
     }
 
     public ConfigSession getServer() {
@@ -84,6 +93,8 @@ public class ConfigReader {
     public float getMultiplier() {
         return multiplier;
     }
+
+    public int getBatch() { return batch; }
 
     public int getNumOfNodes() {
         return sessions.size();

@@ -18,11 +18,15 @@ import java.util.concurrent.CopyOnWriteArrayList;
 public class MyAppDistributedNode extends DistributedNode<Integer> implements DistributedNodeListener<Integer> {
     private final Map<UUID, SnapshotRestore> snapshotsRestore;
     private List<MyAppClientSession> outgoingLinks;
+
+    private int numOfNodes;
     private StateApp state;
 
     private MyAppServer myAppServer;
 
     private long productionTime;
+
+    private int batch;
 
     private float multiplier;
 
@@ -39,8 +43,55 @@ public class MyAppDistributedNode extends DistributedNode<Integer> implements Di
             ConfigReader parameters = new ConfigReader("prova.JSON");
             System.out.println("Reading completed");
 
+
             multiplier = parameters.getMultiplier();
             productionTime = parameters.getProductionTime();
+            batch = parameters.getBatch();
+            numOfNodes = parameters.getNumOfNodes();
+
+            if(parameters.getServer() != null) {
+                ConfigSession session = parameters.getServer();
+                System.out.println("l'ip del server è "+ session.getIp());
+                System.out.println("la porta del server è " + session.getPort());
+                myAppServer = new MyAppServer(this, session.getIp(), session.getPort());
+                myAppServer.bind();
+            }
+
+            new Thread(() -> {
+                while(true){
+                    float workingOn = getState().getWorkingOn();
+                    if(workingOn-batch>=0){
+                        try {
+                            Thread.sleep(1000*(productionTime));
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                        System.out.println("Sending to " + outgoingLinks.size() + " nodes");
+                        if(numOfNodes==0){ //is the last node of the production chain
+                            getState().refreshAfterSent(batch);
+                        }
+                        else{
+                            for (MyAppClientSession a : outgoingLinks) {
+                                float newAmount = batch * a.getPercentage();
+                                System.out.println("new amount " + newAmount);
+                                a.sendPacket(new ArrivingGoods(newAmount));
+                            }
+                            try {
+                                Thread.sleep(1000); //time taken by the machine to deliver the goods always the same
+                            } catch (InterruptedException e) {
+                                e.printStackTrace();
+                            }
+                        }
+                    }
+                    else{
+                        try {
+                            Thread.sleep(200);
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                }
+            }).start();
 
             for(ConfigSession sessionCfg : parameters.getClientSessions()) {
 
@@ -64,11 +115,6 @@ public class MyAppDistributedNode extends DistributedNode<Integer> implements Di
                 );
             }
 
-            if(parameters.getServer() != null) {
-                ConfigSession session = parameters.getServer();
-                myAppServer = new MyAppServer(this, session.getIp(), session.getPort());
-                myAppServer.bind();
-            }
         } catch (Exception e) {
             System.out.println("Error reading config file");
             throw new RuntimeException(e);
@@ -103,7 +149,6 @@ public class MyAppDistributedNode extends DistributedNode<Integer> implements Di
         System.out.println("Packet " + packet.getClass().getSimpleName());
 
         if(packet instanceof SnapshotRestorePacket) {
-            //TODO
             UUID uuid = ((SnapshotRestorePacket) packet).getSnasphotRestoreId();
             boolean firstTime;
 
@@ -162,7 +207,14 @@ public class MyAppDistributedNode extends DistributedNode<Integer> implements Di
 
         if (packet instanceof ArrivingGoods) {
             System.out.println("Packet " + ((ArrivingGoods) packet).getAmount());
-            new Thread(() -> sendGoods((ArrivingGoods) packet)).start();
+            state.refreshWorkingOn(((ArrivingGoods) packet).getAmount() * multiplier);
+        }
+    }
+
+    @Override
+    public void onPacketSent(Session<Integer> session, Packet packet) {
+        if(packet instanceof ArrivingGoods) {
+            state.refreshAfterSent(((ArrivingGoods) packet).getAmount());
         }
     }
 
@@ -203,20 +255,6 @@ public class MyAppDistributedNode extends DistributedNode<Integer> implements Di
 
     public void sendGoods(ArrivingGoods goods) {
         state.refreshWorkingOn(goods.getAmount() * multiplier);
-
-        try {
-            Thread.sleep(1000*(productionTime));
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
-        System.out.println("Sending to " + outgoingLinks.size() + " nodes");
-        for (MyAppClientSession a : outgoingLinks) {
-            float temp = goods.getAmount();
-            float newAmount = temp * multiplier * a.getPercentage();
-            System.out.println("new amount " + newAmount);
-            a.sendPacket(new ArrivingGoods(newAmount));
-        }
     }
 
     public long getProductionTime() {
