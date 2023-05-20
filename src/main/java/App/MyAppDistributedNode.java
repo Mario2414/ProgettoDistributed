@@ -95,7 +95,7 @@ public class MyAppDistributedNode extends DistributedNode<Integer> implements Di
             File file = new File("latest.snapshot");
             if (file.exists()) {
                 UUID uuid = UUID.randomUUID();
-                SnapshotRestore snapshot = new SnapshotRestore(uuid, Optional.empty(), sessions);
+                SnapshotRestore snapshot = new SnapshotRestore(uuid, sessions);
                 snapshotsRestore.put(uuid, snapshot);
                 sessions.forEach(s -> s.sendPacket(new SnapshotRestorePacket(uuid)));
             } else {
@@ -126,7 +126,7 @@ public class MyAppDistributedNode extends DistributedNode<Integer> implements Di
                 firstTime = !snapshotsRestore.containsKey(uuid);
                 if (firstTime) {
                     List<Session<Integer>> otherSessions = sessions.stream().filter(s -> !s.getID().equals(session.getID())).toList();
-                    SnapshotRestore snapshot = new SnapshotRestore(uuid, Optional.of(session), otherSessions);
+                    SnapshotRestore snapshot = new SnapshotRestore(uuid, otherSessions);
 
                     if(otherSessions.isEmpty()) {
                         try {
@@ -146,9 +146,9 @@ public class MyAppDistributedNode extends DistributedNode<Integer> implements Di
 
                         otherSessions.forEach(otherSession -> otherSession.sendPacket(packet));
                     }
-                } else {
-                    session.sendPacket(new SnapshotRestoreAckPacket(uuid));
                 }
+
+                session.sendPacket(new SnapshotRestoreAckPacket(uuid));
             }
         } else if(packet instanceof SnapshotRestoreAckPacket) {
             UUID snapshotID = ((SnapshotRestoreAckPacket) packet).getSnasphotRestoreId();
@@ -168,7 +168,6 @@ public class MyAppDistributedNode extends DistributedNode<Integer> implements Di
                             e.printStackTrace();
                             throw new RuntimeException(e);
                         }
-                        snapshot.getRestoreInitiator().ifPresent( opt -> opt.sendPacket(new SnapshotRestoreAckPacket(snapshotID)));
                         snapshotsRestore.remove(snapshotID);
                     }
                 }

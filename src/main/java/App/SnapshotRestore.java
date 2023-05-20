@@ -10,12 +10,10 @@ import java.util.stream.Collectors;
 
 public class SnapshotRestore {
     private UUID uuid;
-    private final Optional<Session<Integer>> restoreInitiator;
     private final HashSet<Integer> pendingSessions;
 
-    public SnapshotRestore(UUID uuid, Optional<Session<Integer>> restoreInitiator, Collection<Session<Integer>> sessions) {
+    public SnapshotRestore(UUID uuid, Collection<Session<Integer>> sessions) {
         this.uuid = uuid;
-        this.restoreInitiator = restoreInitiator;
         this.pendingSessions = sessions.stream().map(Session::getID).collect(Collectors.toCollection(HashSet::new));
         //System.out.println("ci sono tot sessioni aperte: "+this.pendingSessions.size());
     }
@@ -41,9 +39,5 @@ public class SnapshotRestore {
         synchronized(pendingSessions) {
             return pendingSessions.isEmpty();
         }
-    }
-
-    public Optional<Session<Integer>> getRestoreInitiator() {
-        return restoreInitiator;
     }
 }
