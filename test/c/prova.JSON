@@ -1,11 +1,17 @@
 {
-  "multiplier": 1.5,
+  "multiplier": 1,
+  "batch" : 100,
   "server" : {
+    "ip": "localhost",
+    "serverPort": 8082
+  },
+  "nodes": [
+    {
       "id": 1,
       "ip": "localhost",
-      "port": 8082,
-      "percentage": 0.5
-  },
-  "nodes": [],
-  "productionTime": 1
+      "port": 8090,
+      "percentage": 1
+    }
+  ],
+  "productionTime": 5
 }
