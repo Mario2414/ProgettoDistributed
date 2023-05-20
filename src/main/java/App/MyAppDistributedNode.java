@@ -13,6 +13,7 @@ import java.io.File;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 public class MyAppDistributedNode extends DistributedNode<Integer> implements DistributedNodeListener<Integer> {
@@ -36,7 +37,7 @@ public class MyAppDistributedNode extends DistributedNode<Integer> implements Di
         this.state = state;
         outgoingLinks = new CopyOnWriteArrayList<MyAppClientSession>();
 
-        snapshotsRestore = new HashMap<UUID, SnapshotRestore>();
+        snapshotsRestore = new ConcurrentHashMap<UUID, SnapshotRestore>();
         this.addListener(this);
 
         try {
@@ -124,20 +125,41 @@ public class MyAppDistributedNode extends DistributedNode<Integer> implements Di
             synchronized (this) {
                 firstTime = !snapshotsRestore.containsKey(uuid);
                 if (firstTime) {
-                    System.out.println(sessions.size());
-                    //todo c'è un bug gigante in quanto le session del server e dei nodi non sono garantite essere diverse anzi sono uguali
-                    SnapshotRestore snapshot = new SnapshotRestore(uuid, Optional.of(session), sessions.stream().filter(s -> !s.getID().equals(session.getID())).toList());
-                    snapshotsRestore.put(uuid, snapshot);
-                    sessions.forEach(otherSession -> {
-                        if (otherSession != session) {
-                            otherSession.sendPacket(packet);
-                        }
-                    });
-                    //this is in the case there is no other nodes to wait for the acks
-                    if(snapshot.isSnapshotRestoreComplete()) {
-                        session.sendPacket(new SnapshotRestoreAckPacket(uuid)); //this is the initiator
+                    List<Session<Integer>> otherSessions = sessions.stream().filter(s -> !s.getID().equals(session.getID())).toList();
+                    SnapshotRestore snapshot = new SnapshotRestore(uuid, Optional.of(session), otherSessions);
+
+                    if(otherSessions.isEmpty()) {
                         try {
                             System.out.println("Restoring snapshot 1");
+                            goodsThread.stopThread();
+                            state = (StateApp) restoreSnapshot(new File("latest.snapshot"));
+                            goodsThread = new GoodsThread(this, batch, numOfNodes, productionTime);
+                            goodsThread.start();
+
+                            session.sendPacket(new SnapshotRestoreAckPacket(uuid)); //initiator
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                            throw new RuntimeException(e);
+                        }
+                    } else {
+                        snapshotsRestore.put(uuid, snapshot);
+
+                        otherSessions.forEach(otherSession -> otherSession.sendPacket(packet));
+                    }
+                } else {
+                    session.sendPacket(new SnapshotRestoreAckPacket(uuid));
+                }
+            }
+        } else if(packet instanceof SnapshotRestoreAckPacket) {
+            UUID snapshotID = ((SnapshotRestoreAckPacket) packet).getSnasphotRestoreId();
+            //synchronization block is needed to guarantee that snapshot complete is called only once
+            synchronized (this){
+                if(snapshotsRestore.containsKey(snapshotID)) {
+                    SnapshotRestore snapshot = snapshotsRestore.get(snapshotID);
+                    snapshot.markSessionAsDone(session.getID());
+                    if (snapshot.isSnapshotRestoreComplete()) {
+                        try {
+                            System.out.println("Restoring snapshot 2");
                             goodsThread.stopThread();
                             state = (StateApp) restoreSnapshot(new File("latest.snapshot"));
                             goodsThread = new GoodsThread(this, batch, numOfNodes, productionTime);
@@ -146,35 +168,9 @@ public class MyAppDistributedNode extends DistributedNode<Integer> implements Di
                             e.printStackTrace();
                             throw new RuntimeException(e);
                         }
-                    } else {
-                        snapshotsRestore.put(uuid, snapshot); // y in else
+                        snapshot.getRestoreInitiator().ifPresent( opt -> opt.sendPacket(new SnapshotRestoreAckPacket(snapshotID)));
+                        snapshotsRestore.remove(snapshotID);
                     }
-                } else {
-                    session.sendPacket(new SnapshotRestoreAckPacket(uuid));
-                }
-            }
-        } else if(packet instanceof SnapshotRestoreAckPacket) {
-            UUID snapshotID = ((SnapshotRestoreAckPacket) packet).getSnasphotRestoreId();
-            synchronized (this){
-                if(snapshotsRestore.containsKey(snapshotID)) {
-                    SnapshotRestore snapshot = snapshotsRestore.get(snapshotID);
-                    //synchronization block is needed to guarantee that snapshot complete is called only once
-                        snapshot.markSessionAsDone(session.getID());
-                        if (snapshot.isSnapshotRestoreComplete()) {
-                            try {
-                                System.out.println("Restoring snapshot 2");
-                                goodsThread.stopThread();
-                                state = (StateApp) restoreSnapshot(new File("latest.snapshot"));
-                                goodsThread = new GoodsThread(this, batch, numOfNodes, productionTime);
-                                goodsThread.start();
-
-                            } catch (Exception e) {
-                                e.printStackTrace();
-                                throw new RuntimeException(e);
-                            }
-                            snapshot.getRestoreInitiator().ifPresent( opt -> opt.sendPacket(new SnapshotRestoreAckPacket(snapshotID)));
-                            snapshotsRestore.remove(snapshotID);
-                        }
                 }
             }
 
@@ -211,7 +207,7 @@ public class MyAppDistributedNode extends DistributedNode<Integer> implements Di
                         newSess.start();
 
                         addSession(
-                                session
+                                newSess
                         );
                         System.out.println("Recovered");
                         break;

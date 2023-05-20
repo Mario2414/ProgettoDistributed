@@ -11,21 +11,17 @@ public class StateApp extends State {
         this.finished = 0;
     }
 
-    public float getWorkingOn(){
+    public synchronized float getWorkingOn(){
         return workingOn;
     }
 
     public synchronized void refreshWorkingOn(float amount){
-        synchronized (this){
-            workingOn = workingOn + amount;
-        }
+        workingOn = workingOn + amount;
     }
 
     public synchronized void refreshAfterSent(float amount){
-        synchronized (this){
-            workingOn = workingOn - amount;
-            finished = finished + amount;
-        }
+        workingOn = workingOn - amount;
+        finished = finished + amount;
     }
 
     @Override

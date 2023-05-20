@@ -4,8 +4,7 @@ import App.packets.ArrivingGoods;
 
 import java.util.List;
 
-public class GoodsThread extends Thread{
-    private StateApp state;
+public class GoodsThread extends Thread {
     private MyAppDistributedNode node;
 
     private int batch;
@@ -20,12 +19,11 @@ public class GoodsThread extends Thread{
         this.node = node;
         this.numOfNodes = numOfNodes;
         this.productionTime = productionTime;
-        this.state = node.getState();
     }
 
     public void run() {
         while (isRunning) {
-            float workingOn = state.getWorkingOn();
+            float workingOn = node.getState().getWorkingOn();
             if (workingOn - batch >= 0) {
                 try {
                     Thread.sleep(1000 * (productionTime));
@@ -33,7 +31,7 @@ public class GoodsThread extends Thread{
                     e.printStackTrace();
                 }
                 if (numOfNodes == 0) { //is the last node of the production chain
-                    state.refreshAfterSent(batch);
+                    node.getState().refreshAfterSent(batch);
                 } else {
                     for (MyAppClientSession a : node.getOutgoinglink()) {
                         float newAmount = batch * a.getPercentage();
@@ -41,7 +39,7 @@ public class GoodsThread extends Thread{
                             System.out.println("Sending to " + node.getOutgoinglink().size() + " nodes");
                             System.out.println("new amount " + newAmount);
                             a.sendPacket(new ArrivingGoods(newAmount));
-                            state.refreshAfterSent(newAmount);
+                            node.getState().refreshAfterSent(newAmount);
                         }
                     }
                 }
@@ -55,7 +53,8 @@ public class GoodsThread extends Thread{
         }
     }
 
-    public void stopThread() {
+    public void stopThread() throws InterruptedException {
         isRunning = false;
+        join();
     }
 }
