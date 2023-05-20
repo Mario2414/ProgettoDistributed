@@ -15,16 +15,6 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 
 /*
 * TODO
-*  Problem with concurrency:
-* Le operazioni sullo state risultano asincrone (le varie session operano su thread diversi).
-* Si potrebbe scaricare l'onore di rendere di rendere lo state thread safe all'utente, ma serve rendere anche
-* il deep copy dello state (durante il write dello snapshot) thread safe
-* Opzione A: rendere tutto single threaded
-* Opzione B: pensare a un modo per rendere il write dello snapshot thread safe
-* */
-
-/*
-* TODO
 *  Problem with circular networks topology
 * */
 
