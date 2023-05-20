@@ -16,6 +16,7 @@ import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 public class MyAppDistributedNode extends DistributedNode<Integer> implements DistributedNodeListener<Integer> {
+    private GoodsThread goodsThread;
     private final Map<UUID, SnapshotRestore> snapshotsRestore;
     private List<MyAppClientSession> outgoingLinks;
 
@@ -57,41 +58,8 @@ public class MyAppDistributedNode extends DistributedNode<Integer> implements Di
                 myAppServer.bind();
             }
 
-            new Thread(() -> {
-                while(true){
-                    float workingOn = getState().getWorkingOn();
-                    if(workingOn-batch>=0){
-                        try {
-                            Thread.sleep(1000*(productionTime));
-                        } catch (InterruptedException e) {
-                            e.printStackTrace();
-                        }
-                        System.out.println("Sending to " + outgoingLinks.size() + " nodes");
-                        if(numOfNodes==0){ //is the last node of the production chain
-                            getState().refreshAfterSent(batch);
-                        }
-                        else{
-                            for (MyAppClientSession a : outgoingLinks) {
-                                float newAmount = batch * a.getPercentage();
-                                System.out.println("new amount " + newAmount);
-                                a.sendPacket(new ArrivingGoods(newAmount));
-                            }
-                            try {
-                                Thread.sleep(1000); //time taken by the machine to deliver the goods always the same
-                            } catch (InterruptedException e) {
-                                e.printStackTrace();
-                            }
-                        }
-                    }
-                    else{
-                        try {
-                            Thread.sleep(200);
-                        } catch (InterruptedException e) {
-                            e.printStackTrace();
-                        }
-                    }
-                }
-            }).start();
+            goodsThread = new GoodsThread(this, batch, numOfNodes, productionTime);
+            goodsThread.start();
 
             for(ConfigSession sessionCfg : parameters.getClientSessions()) {
 
@@ -156,6 +124,8 @@ public class MyAppDistributedNode extends DistributedNode<Integer> implements Di
             synchronized (this) {
                 firstTime = !snapshotsRestore.containsKey(uuid);
                 if (firstTime) {
+                    System.out.println(sessions.size());
+                    //todo c'è un bug gigante in quanto le session del server e dei nodi non sono garantite essere diverse anzi sono uguali
                     SnapshotRestore snapshot = new SnapshotRestore(uuid, Optional.of(session), sessions.stream().filter(s -> !s.getID().equals(session.getID())).toList());
                     snapshotsRestore.put(uuid, snapshot);
                     sessions.forEach(otherSession -> {
@@ -163,13 +133,15 @@ public class MyAppDistributedNode extends DistributedNode<Integer> implements Di
                             otherSession.sendPacket(packet);
                         }
                     });
-
-                    /* commento perchè non penso sia necessaria
+                    //this is in the case there is no other nodes to wait for the acks
                     if(snapshot.isSnapshotRestoreComplete()) {
                         session.sendPacket(new SnapshotRestoreAckPacket(uuid)); //this is the initiator
                         try {
                             System.out.println("Restoring snapshot 1");
+                            goodsThread.stopThread();
                             state = (StateApp) restoreSnapshot(new File("latest.snapshot"));
+                            goodsThread = new GoodsThread(this, batch, numOfNodes, productionTime);
+                            goodsThread.start();
                         } catch (Exception e) {
                             e.printStackTrace();
                             throw new RuntimeException(e);
@@ -177,33 +149,35 @@ public class MyAppDistributedNode extends DistributedNode<Integer> implements Di
                     } else {
                         snapshotsRestore.put(uuid, snapshot); // y in else
                     }
-
-                     */
                 } else {
                     session.sendPacket(new SnapshotRestoreAckPacket(uuid));
                 }
             }
         } else if(packet instanceof SnapshotRestoreAckPacket) {
             UUID snapshotID = ((SnapshotRestoreAckPacket) packet).getSnasphotRestoreId();
-            //TODO y don't sychronize containskey?
-            if(snapshotsRestore.containsKey(snapshotID)) {
-                SnapshotRestore snapshot = snapshotsRestore.get(snapshotID);
-                //synchronization block is needed to guarantee that snapshot complete is called only once
-                synchronized (this) {
-                    snapshot.markSessionAsDone(session.getID());
-                    if (snapshot.isSnapshotRestoreComplete()) {
-                        try {
-                            System.out.println("Restoring snapshot 2");
-                            state = (StateApp) restoreSnapshot(new File("latest.snapshot"));
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                            throw new RuntimeException(e);
+            synchronized (this){
+                if(snapshotsRestore.containsKey(snapshotID)) {
+                    SnapshotRestore snapshot = snapshotsRestore.get(snapshotID);
+                    //synchronization block is needed to guarantee that snapshot complete is called only once
+                        snapshot.markSessionAsDone(session.getID());
+                        if (snapshot.isSnapshotRestoreComplete()) {
+                            try {
+                                System.out.println("Restoring snapshot 2");
+                                goodsThread.stopThread();
+                                state = (StateApp) restoreSnapshot(new File("latest.snapshot"));
+                                goodsThread = new GoodsThread(this, batch, numOfNodes, productionTime);
+                                goodsThread.start();
+
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                                throw new RuntimeException(e);
+                            }
+                            snapshot.getRestoreInitiator().ifPresent( opt -> opt.sendPacket(new SnapshotRestoreAckPacket(snapshotID)));
+                            snapshotsRestore.remove(snapshotID);
                         }
-                        snapshot.getRestoreInitiator().ifPresent( opt -> opt.sendPacket(new SnapshotRestoreAckPacket(snapshotID)));
-                        snapshotsRestore.remove(snapshotID);
-                    }
                 }
             }
+
         }
 
         if (packet instanceof ArrivingGoods) {
@@ -215,7 +189,7 @@ public class MyAppDistributedNode extends DistributedNode<Integer> implements Di
     @Override
     public void onPacketSent(Session<Integer> session, Packet packet) {
         if(packet instanceof ArrivingGoods) {
-            state.refreshAfterSent(((ArrivingGoods) packet).getAmount());
+
         }
     }
 
@@ -268,5 +242,9 @@ public class MyAppDistributedNode extends DistributedNode<Integer> implements Di
 
     public StateApp getState() {
         return state;
+    }
+
+    public List<MyAppClientSession> getOutgoinglink(){
+        return outgoingLinks;
     }
 }

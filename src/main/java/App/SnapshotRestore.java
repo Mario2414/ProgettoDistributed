@@ -17,6 +17,7 @@ public class SnapshotRestore {
         this.uuid = uuid;
         this.restoreInitiator = restoreInitiator;
         this.pendingSessions = sessions.stream().map(Session::getID).collect(Collectors.toCollection(HashSet::new));
+        //System.out.println("ci sono tot sessioni aperte: "+this.pendingSessions.size());
     }
 
     // Check if a session is pending in the snapshot

@@ -63,6 +63,8 @@ public class App {
                 node.restore();
             } else if(numInput == 4) {
                 System.out.println(node.getState().toString());
+            } else if(numInput == 5){
+                System.out.println(node.getSessions().size());
             }
 
         }
