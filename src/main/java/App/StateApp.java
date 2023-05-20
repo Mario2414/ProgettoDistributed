@@ -7,6 +7,7 @@ public class StateApp extends State {
     private float workingOn;
 
     public StateApp(){
+        super();
         this.workingOn = 0;
         this.finished = 0;
     }
