@@ -155,35 +155,37 @@ public class MyAppDistributedNode extends DistributedNode<Integer> implements Di
             //This block must be seen as a single atomic operation
             synchronized (this) {
                 firstTime = !snapshotsRestore.containsKey(uuid);
-                if(firstTime) {
+                if (firstTime) {
                     SnapshotRestore snapshot = new SnapshotRestore(uuid, Optional.of(session), sessions.stream().filter(s -> !s.getID().equals(session.getID())).toList());
+                    snapshotsRestore.put(uuid, snapshot);
+                    sessions.forEach(otherSession -> {
+                        if (otherSession != session) {
+                            otherSession.sendPacket(packet);
+                        }
+                    });
 
+                    /* commento perchè non penso sia necessaria
                     if(snapshot.isSnapshotRestoreComplete()) {
                         session.sendPacket(new SnapshotRestoreAckPacket(uuid)); //this is the initiator
                         try {
-                            System.out.println("Restoring snapshot");
+                            System.out.println("Restoring snapshot 1");
                             state = (StateApp) restoreSnapshot(new File("latest.snapshot"));
                         } catch (Exception e) {
                             e.printStackTrace();
                             throw new RuntimeException(e);
                         }
                     } else {
-                        snapshotsRestore.put(uuid, snapshot);
+                        snapshotsRestore.put(uuid, snapshot); // y in else
                     }
-                }
-            }
 
-            if(firstTime) {
-                sessions.forEach(otherSession -> {
-                    if(otherSession != session) {
-                        otherSession.sendPacket(packet);
-                    }
-                });
-            } else {
-                session.sendPacket(new SnapshotRestoreAckPacket(uuid));
+                     */
+                } else {
+                    session.sendPacket(new SnapshotRestoreAckPacket(uuid));
+                }
             }
         } else if(packet instanceof SnapshotRestoreAckPacket) {
             UUID snapshotID = ((SnapshotRestoreAckPacket) packet).getSnasphotRestoreId();
+            //TODO y don't sychronize containskey?
             if(snapshotsRestore.containsKey(snapshotID)) {
                 SnapshotRestore snapshot = snapshotsRestore.get(snapshotID);
                 //synchronization block is needed to guarantee that snapshot complete is called only once
@@ -191,15 +193,14 @@ public class MyAppDistributedNode extends DistributedNode<Integer> implements Di
                     snapshot.markSessionAsDone(session.getID());
                     if (snapshot.isSnapshotRestoreComplete()) {
                         try {
-                            System.out.println("Restoring snapshot");
+                            System.out.println("Restoring snapshot 2");
                             state = (StateApp) restoreSnapshot(new File("latest.snapshot"));
                         } catch (Exception e) {
                             e.printStackTrace();
                             throw new RuntimeException(e);
                         }
-                        snapshotsRestore.remove(snapshotID);
-
                         snapshot.getRestoreInitiator().ifPresent( opt -> opt.sendPacket(new SnapshotRestoreAckPacket(snapshotID)));
+                        snapshotsRestore.remove(snapshotID);
                     }
                 }
             }
