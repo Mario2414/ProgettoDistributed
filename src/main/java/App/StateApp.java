@@ -24,6 +24,10 @@ public class StateApp extends State {
         workingOn = workingOn - amount;
         finished = finished + amount;
     }
+    public synchronized void restore(StateApp state) {
+        this.finished = state.finished;
+        this.workingOn = state.workingOn;
+    }
 
     @Override
     public synchronized String toString() {
