@@ -21,7 +21,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 public class DistributedNode<ID extends Comparable<ID> & Serializable> implements SessionListener<ID> {
     protected final Queue<Session<ID>> sessions;
     protected final Map<UUID, Snapshot<ID>> snapshots;
-    protected State state;
+    protected final State state;
     protected final Queue<Snapshot<ID>> activeSnapshots;
     protected final ListenerList<DistributedNodeListener<ID>> listeners;
 
@@ -48,7 +48,7 @@ public class DistributedNode<ID extends Comparable<ID> & Serializable> implement
         ObjectInputStream in = new ObjectInputStream(new FileInputStream(snapshotFile));
         UUID snapshotID = (UUID) in.readObject();
         LocalDateTime date = (LocalDateTime) in.readObject();
-        this.state = (State) in.readObject();
+        this.state.restore((State) in.readObject());
         int size = in.readInt();
         Map<ID, Collection<Packet>> packetsToRestore = new HashMap<>();
         for(int i = 0; i < size; i++) {

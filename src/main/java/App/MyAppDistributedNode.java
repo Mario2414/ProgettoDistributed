@@ -132,7 +132,7 @@ public class MyAppDistributedNode extends DistributedNode<Integer> implements Di
                         try {
                             System.out.println("Restoring snapshot 1");
                             goodsThread.stopThread();
-                            state = (StateApp) restoreSnapshot(new File("latest.snapshot"));
+                            restoreSnapshot(new File("latest.snapshot"));
                             goodsThread = new GoodsThread(this, batch, numOfNodes, productionTime);
                             goodsThread.start();
 
@@ -161,7 +161,7 @@ public class MyAppDistributedNode extends DistributedNode<Integer> implements Di
                         try {
                             System.out.println("Restoring snapshot 2");
                             goodsThread.stopThread();
-                            state.restore((StateApp) restoreSnapshot(new File("latest.snapshot")));
+                            restoreSnapshot(new File("latest.snapshot"));
                             goodsThread = new GoodsThread(this, batch, numOfNodes, productionTime);
                             goodsThread.start();
                         } catch (Exception e) {

@@ -24,9 +24,11 @@ public class StateApp extends State {
         workingOn = workingOn - amount;
         finished = finished + amount;
     }
-    public synchronized void restore(StateApp state) {
-        this.finished = state.finished;
-        this.workingOn = state.workingOn;
+    @Override
+    public synchronized void restore(State state) {
+        StateApp stateA = (StateApp) state;
+        this.finished = stateA.finished;
+        this.workingOn = stateA.workingOn;
     }
 
     @Override

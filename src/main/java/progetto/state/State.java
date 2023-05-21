@@ -13,6 +13,8 @@ public abstract class State implements Serializable, Cloneable {
         this.lock = this;
     }
 
+    public abstract void restore(State state);
+
     @Override
     public State clone() {
         synchronized (lock) {
