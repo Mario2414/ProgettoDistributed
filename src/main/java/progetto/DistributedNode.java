@@ -143,7 +143,6 @@ public class DistributedNode<ID extends Comparable<ID> & Serializable> implement
                     if (snapshot.isSnapshotComplete()) {
                         listeners.forEachListeners(l -> l.onShapshotCompleted(this, snapshot));
                         activeSnapshots.remove(snapshot);
-                        snapshots.remove(snapshotID);
                     }
                 }
             }

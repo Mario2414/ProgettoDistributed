@@ -1,4 +1,4 @@
-package test1;
+package common;
 
 import progetto.packet.Packet;
 

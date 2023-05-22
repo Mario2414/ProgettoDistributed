@@ -95,6 +95,13 @@ public class MyAppDistributedNode extends DistributedNode<Integer> implements Di
             File file = new File("latest.snapshot");
             if (file.exists()) {
                 UUID uuid = UUID.randomUUID();
+
+                try {
+                    goodsThread.stopThread();
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+
                 SnapshotRestore snapshot = new SnapshotRestore(uuid, Optional.empty(), sessions);
                 snapshotsRestore.put(uuid, snapshot);
                 sessions.forEach(s -> s.sendPacket(new SnapshotRestorePacket(uuid)));
@@ -125,13 +132,18 @@ public class MyAppDistributedNode extends DistributedNode<Integer> implements Di
             synchronized (this) {
                 firstTime = !snapshotsRestore.containsKey(uuid);
                 if (firstTime) {
+                    try {
+                        goodsThread.stopThread();
+                    } catch (InterruptedException e) {
+                        throw new RuntimeException(e);
+                    }
+
                     List<Session<Integer>> otherSessions = sessions.stream().filter(s -> !s.getID().equals(session.getID())).toList();
                     SnapshotRestore snapshot = new SnapshotRestore(uuid, Optional.of(session), otherSessions);
 
                     if(otherSessions.isEmpty()) {
                         try {
                             System.out.println("Restoring snapshot 1");
-                            goodsThread.stopThread();
                             restoreSnapshot(new File("latest.snapshot"));
                             goodsThread = new GoodsThread(this, batch, numOfNodes, productionTime);
                             goodsThread.start();
@@ -169,7 +181,6 @@ public class MyAppDistributedNode extends DistributedNode<Integer> implements Di
                             throw new RuntimeException(e);
                         }
                         snapshot.getRestoreInitiator().ifPresent( opt -> opt.sendPacket(new SnapshotRestoreAckPacket(snapshotID)));
-                        snapshotsRestore.remove(snapshotID);
                     }
                 }
             }

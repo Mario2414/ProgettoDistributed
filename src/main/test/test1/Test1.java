@@ -1,5 +1,8 @@
 package test1;
 
+import common.DummySessionTest;
+import common.PacketIncrementTest;
+import common.StateTest;
 import org.junit.jupiter.api.Test;
 import progetto.utils.Const;
 
@@ -22,7 +25,7 @@ public class Test1 {
         Const.DEBUG = true;
 
         DummySessionTest session1 = new DummySessionTest(1);
-        DummySessionTest session2 = new DummySessionTest(2);
+        DummySessionTest session2 = new DummySessionTest(1);
         StateTest state1 = new StateTest();
         StateTest state2 = new StateTest();
 

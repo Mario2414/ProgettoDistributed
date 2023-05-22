@@ -1,10 +1,10 @@
-package test1;
+package common;
 
 import progetto.state.State;
 import progetto.state.StateAbstract;
 
 public class StateTest extends StateAbstract {
-    int state;
+    public int state;
     public StateTest() {
         super();
         this.state = 0;
