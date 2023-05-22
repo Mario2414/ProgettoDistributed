@@ -5,6 +5,7 @@ import progetto.session.SessionListener;
 import progetto.session.packet.SnapshotAckPacket;
 import progetto.session.packet.SnapshotMarkerPacket;
 import progetto.state.State;
+import progetto.utils.Const;
 import progetto.utils.ListenerList;
 
 import java.io.*;
@@ -54,10 +55,12 @@ public class DistributedNode<ID extends Comparable<ID> & Serializable> implement
         for(int i = 0; i < size; i++) {
             ID id = (ID) in.readObject();
             int packetsSize = in.readInt();
+            if(Const.DEBUG) System.out.println("Packets to restore " + packetsSize);
             List<Packet> packets = new ArrayList<>();
             for(int packetCount = 0; packetCount < packetsSize; packetCount++) {
                 Packet packet = (Packet) in.readObject();
                 packets.add(packet);
+                if(Const.DEBUG) System.out.println("Restoring " + packet.getClass().getSimpleName());
             }
             packetsToRestore.put(id, packets);
         }
@@ -94,8 +97,8 @@ public class DistributedNode<ID extends Comparable<ID> & Serializable> implement
             LocalDateTime date = LocalDateTime.now();
             Snapshot<ID> snapshot = new Snapshot<>(uuid, date, state.clone(), sessions);
             snapshots.put(uuid, snapshot);
-            sessions.forEach(s -> s.sendPacket(new SnapshotMarkerPacket(uuid, date)));
             activeSnapshots.add(snapshot);
+            sessions.forEach(s -> s.sendPacket(new SnapshotMarkerPacket(uuid, date)));
         } catch (Exception e) {
             e.printStackTrace();
         }
