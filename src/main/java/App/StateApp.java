@@ -1,8 +1,9 @@
 package App;
 
 import progetto.state.State;
+import progetto.state.StateAbstract;
 
-public class StateApp extends State {
+public class StateApp extends StateAbstract {
     private float finished;
     private float workingOn;
 
