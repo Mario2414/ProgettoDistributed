@@ -1,5 +1,5 @@
 package progetto.utils;
 
 public class Const {
-    public static final boolean DEBUG = true;
+    public static boolean DEBUG = false;
 }

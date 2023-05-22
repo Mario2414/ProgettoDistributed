@@ -1,6 +1,7 @@
 package test1;
 
 import org.junit.jupiter.api.Test;
+import progetto.utils.Const;
 
 import java.io.File;
 import java.io.IOException;
@@ -18,6 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 public class Test1 {
     @Test
     public void test() throws IOException, ClassNotFoundException {
+        Const.DEBUG = true;
 
         DummySessionTest session1 = new DummySessionTest(1);
         DummySessionTest session2 = new DummySessionTest(2);
