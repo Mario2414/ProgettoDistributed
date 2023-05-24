@@ -106,13 +106,11 @@ public class DistributedNode<ID extends Comparable<ID> & Serializable> implement
 
     @Override
     public void onPacketReceived(Session<ID> session, Packet packet) {
-        if(packet instanceof SnapshotMarkerPacket) {
-            UUID uuid = ((SnapshotMarkerPacket) packet).getUuid();
-            boolean firstTime;
-
-            //This block must be seen as a single atomic operation
-            synchronized (this) {
-                firstTime = !snapshots.containsKey(uuid);
+        //This block must be seen as a single atomic operation
+        synchronized (this) {
+            if(packet instanceof SnapshotMarkerPacket) {
+                UUID uuid = ((SnapshotMarkerPacket) packet).getUuid();
+                boolean firstTime = !snapshots.containsKey(uuid);
                 if(firstTime) {
                     Snapshot<ID> snapshot = new Snapshot<>(uuid, ((SnapshotMarkerPacket) packet).getDate(), state.clone(), sessions.stream().filter(s -> !s.getID().equals(session.getID())).toList());
                     if(snapshot.isSnapshotComplete()) {
@@ -121,24 +119,19 @@ public class DistributedNode<ID extends Comparable<ID> & Serializable> implement
                         snapshots.put(uuid, snapshot);
                         activeSnapshots.add(snapshot);
                     }
-                }
-            }
 
-            if(firstTime) {
-                sessions.forEach(otherSession -> {
-                    if(otherSession != session) {
-                        otherSession.sendPacket(packet);
-                    }
-                });
-            }
-            //Todo check this packet
-            session.sendPacket(new SnapshotAckPacket(uuid));
-        } else if(packet instanceof SnapshotAckPacket) {
-            UUID snapshotID = ((SnapshotAckPacket) packet).getUuid();
-            if(snapshots.containsKey(snapshotID)) {
-                Snapshot<ID> snapshot = snapshots.get(snapshotID);
-                //synchronization block is needed to guarantee that snapshot complete is called only once
-                synchronized (this) {
+                    sessions.forEach(otherSession -> {
+                        if(otherSession != session) {
+                            otherSession.sendPacket(packet);
+                        }
+                    });
+                }
+
+                session.sendPacket(new SnapshotAckPacket(uuid));
+            } else if(packet instanceof SnapshotAckPacket) {
+                UUID snapshotID = ((SnapshotAckPacket) packet).getUuid();
+                if(snapshots.containsKey(snapshotID)) {
+                    Snapshot<ID> snapshot = snapshots.get(snapshotID);
                     snapshot.markSessionAsDone(session.getID());
                     if (snapshot.isSnapshotComplete()) {
                         listeners.forEachListeners(l -> l.onShapshotCompleted(this, snapshot));
@@ -146,15 +139,14 @@ public class DistributedNode<ID extends Comparable<ID> & Serializable> implement
                     }
                 }
             }
-        }
 
-        for(Snapshot<ID> snapshot: activeSnapshots) {
-            if(snapshot.isSessionPending(session.getID())) {
-                snapshot.recordPacket(session.getID(), packet);
+            for(Snapshot<ID> snapshot: activeSnapshots) {
+                if(snapshot.isSessionPending(session.getID())) {
+                    snapshot.recordPacket(session.getID(), packet);
+                }
             }
         }
     }
-    
 
     @Override
     public void onPacketSent(Session<ID> session, Packet packet) {
