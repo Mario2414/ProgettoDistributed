@@ -11,16 +11,8 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 
 
 public class App {
-    private static ConcurrentLinkedQueue<Packet> recoveryPackets = new ConcurrentLinkedQueue<>();
-
-    private static ConcurrentLinkedQueue<Session<Integer>> outgoingLinks = new ConcurrentLinkedQueue<>(); //Accesso in maniera concorrente nei listener
-
-    private static ConcurrentLinkedQueue<Integer> notConnectedNodes = new ConcurrentLinkedQueue<>(); //acceddo in maniera concorrente nei listener
-
-    private static MyAppDistributedNode node;
-
     public static void main(String[] args) {
-        node = new MyAppDistributedNode(new StateApp());
+        MyAppDistributedNode node = new MyAppDistributedNode(new StateApp());
 
         System.out.println("Node started");
 

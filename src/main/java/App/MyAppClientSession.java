@@ -10,9 +10,7 @@ import progetto.tcp.TcpClientSession;
 import java.io.IOException;
 
 public class MyAppClientSession extends TcpClientSession<Integer> implements SessionListener<Integer> {
-    private float percentage;
-
-
+    private final float percentage;
     public MyAppClientSession(Integer sessionID, String host, int port, float percentage, StateApp state) {
         super(sessionID, host, port);
         addListener(this);

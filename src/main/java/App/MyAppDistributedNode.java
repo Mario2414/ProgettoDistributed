@@ -11,7 +11,6 @@ import progetto.packet.Packet;
 
 import java.io.File;
 import java.io.IOException;
-import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -19,18 +18,12 @@ import java.util.concurrent.CopyOnWriteArrayList;
 public class MyAppDistributedNode extends DistributedNode<Integer> implements DistributedNodeListener<Integer> {
     private GoodsThread goodsThread;
     private final Map<UUID, SnapshotRestore> snapshotsRestore;
-    private List<MyAppClientSession> outgoingLinks;
-
-    private int numOfNodes;
-    private StateApp state;
-
-    private MyAppServer myAppServer;
-
-    private long productionTime;
-
-    private int batch;
-
-    private float multiplier;
+    private final List<MyAppClientSession> outgoingLinks;
+    private final int numOfNodes;
+    private final StateApp state;
+    private final long productionTime;
+    private final int batch;
+    private final float multiplier;
 
     public MyAppDistributedNode(StateApp state) {
         super(state);
@@ -55,7 +48,7 @@ public class MyAppDistributedNode extends DistributedNode<Integer> implements Di
                 ConfigSession session = parameters.getServer();
                 System.out.println("l'ip del server è "+ session.getIp());
                 System.out.println("la porta del server è " + session.getPort());
-                myAppServer = new MyAppServer(this, session.getIp(), session.getPort());
+                MyAppServer myAppServer = new MyAppServer(this, session.getIp(), session.getPort());
                 myAppServer.bind();
             }
 
@@ -251,7 +244,7 @@ public class MyAppDistributedNode extends DistributedNode<Integer> implements Di
         return state;
     }
 
-    public List<MyAppClientSession> getOutgoinglink(){
+    public List<MyAppClientSession> getOutgoingLinks(){
         return outgoingLinks;
     }
 }

@@ -2,16 +2,11 @@ package App;
 
 import App.packets.ArrivingGoods;
 
-import java.util.List;
-
 public class GoodsThread extends Thread {
-    private MyAppDistributedNode node;
-
-    private int batch;
-
-    private int numOfNodes;
-
-    private long productionTime;
+    private final MyAppDistributedNode node;
+    private final int batch;
+    private final int numOfNodes;
+    private final long productionTime;
     private volatile boolean isRunning = true;
 
     public GoodsThread(MyAppDistributedNode node, int batch, int numOfNodes, long productionTime){
@@ -33,14 +28,12 @@ public class GoodsThread extends Thread {
                 if (numOfNodes == 0) { //is the last node of the production chain
                     node.getState().refreshAfterSent(batch);
                 } else {
-                    for (MyAppClientSession a : node.getOutgoinglink()) {
-                        float newAmount = batch * a.getPercentage();
-                        if(isRunning){
-                            System.out.println("Sending to " + node.getOutgoinglink().size() + " nodes");
-                            System.out.println("new amount " + newAmount);
-                            a.sendPacket(new ArrivingGoods(newAmount));
-                            node.getState().refreshAfterSent(newAmount);
-                        }
+                    System.out.println("Sending to " + node.getOutgoingLinks().size() + " nodes");
+                    for (MyAppClientSession a : node.getOutgoingLinks()) {
+                        float amountToSend = batch * a.getPercentage();
+                        System.out.println("Sending " + amountToSend);
+                        a.sendPacket(new ArrivingGoods(amountToSend));
+                        node.getState().refreshAfterSent(amountToSend);
                     }
                 }
             } else {

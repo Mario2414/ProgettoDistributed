@@ -9,11 +9,10 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
 class ConfigSession {
-    private int id;
-    private String ip;
-    private int port;
-
-    private float percentage;
+    private final int id;
+    private final String ip;
+    private final int port;
+    private final float percentage;
 
     public ConfigSession(int id, String ip, int port, float percentage) {
         this.id = id;
@@ -40,11 +39,11 @@ class ConfigSession {
 }
 
 public class ConfigReader {
-    private float multiplier;
-    private int batch;
+    private final float multiplier;
+    private final int batch;
     private ConfigSession server;
-    private List<ConfigSession> sessions = new ArrayList<ConfigSession>();
-    private long productionTime;
+    private final List<ConfigSession> sessions = new ArrayList<ConfigSession>();
+    private final long productionTime;
 
     public ConfigReader(String fileName) throws Exception {
         Gson gson = new Gson();

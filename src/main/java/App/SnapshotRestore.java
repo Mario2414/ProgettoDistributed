@@ -9,7 +9,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 public class SnapshotRestore {
-    private UUID uuid;
+    private final UUID uuid;
     private final Optional<Session<Integer>> restoreInitiator;
     private final HashSet<Integer> pendingSessions;
 
