@@ -3,8 +3,6 @@ package progetto.tcp;
 import progetto.Session;
 import progetto.packet.Packet;
 import progetto.session.SessionListener;
-import progetto.session.packet.KeepAlivePingPacket;
-import progetto.session.packet.KeepAlivePongPacket;
 import progetto.utils.ListenerList;
 
 import java.io.IOException;
@@ -66,10 +64,6 @@ public class TcpSession<ID extends Comparable<ID> & Serializable> implements Ses
             ObjectInputStream in = new ObjectInputStream(socket.getInputStream());
             while (run) {
                 Packet packet = (Packet) in.readObject();
-                if(packet instanceof KeepAlivePingPacket) {
-                    lastKeepAlive = ((KeepAlivePingPacket) packet).getTime();
-                    sendPacket(new KeepAlivePongPacket(((KeepAlivePingPacket) packet).getTime()));
-                }
                 listeners.forEachListeners(l -> l.onPacketReceived(this, packet));
             }
         } catch (Exception e) {
