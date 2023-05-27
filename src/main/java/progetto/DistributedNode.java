@@ -183,10 +183,13 @@ public class DistributedNode<ID extends Comparable<ID> & Serializable> implement
                 UUID snapshotID = ((SnapshotAckPacket) packet).getUuid();
                 if(snapshots.containsKey(snapshotID)) {
                     Snapshot<ID> snapshot = snapshots.get(snapshotID);
-                    snapshot.markSessionAsDone(session.getID());
-                    if (snapshot.isSnapshotComplete()) {
-                        listeners.forEachListeners(l -> l.onShapshotCompleted(this, snapshot));
-                        activeSnapshots.remove(snapshot);
+                    if(activeSnapshots.contains(snapshot)){
+                        snapshot.markSessionAsDone(session.getID());
+                        if (snapshot.isSnapshotComplete()) {
+                            listeners.forEachListeners(l -> l.onShapshotCompleted(this, snapshot));
+                            activeSnapshots.remove(snapshot);
+                        }
+
                     }
                 }
             }
