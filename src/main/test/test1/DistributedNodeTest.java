@@ -5,7 +5,7 @@ import common.StateTest;
 import progetto.DistributedNode;
 import progetto.Session;
 import progetto.packet.Packet;
-import progetto.session.packet.SnapshotMarkerPacket;
+import progetto.packet.SnapshotMarkerPacket;
 
 import java.io.File;
 import java.io.IOException;
@@ -17,11 +17,6 @@ public class DistributedNodeTest<T extends Comparable<T> & Serializable> extends
     public DistributedNodeTest(StateTest state) {
         super(state);
         this.state = state;
-    }
-
-    public DistributedNodeTest(File snapshotFile, List<Session<T>> sessions) throws IOException, ClassNotFoundException {
-        super(snapshotFile, sessions);
-        this.state = (StateTest) super.state;
     }
 
     @Override

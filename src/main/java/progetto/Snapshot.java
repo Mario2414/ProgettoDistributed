@@ -20,7 +20,13 @@ public class Snapshot<ID extends Comparable<ID> & Serializable> {
     private final Map<ID, Collection<Packet>> recordedPackets;
     private final HashSet<ID> pendingSessions;
 
-    // Constructor for creating a snapshot with a unique snapshotID, a state object, and a collection of sessions
+    /**
+     * Constructor for creating a snapshot
+     * @param snapshotID unique id of the snapshot
+     * @param date Starting time of the snapshot
+     * @param state State to be saved
+     * @param sessions Sessions pending for an ack
+     */
     public Snapshot(UUID snapshotID, LocalDateTime date, State state, Collection<Session<ID>> sessions) {
         this.snapshotID = snapshotID;
         this.date = date;
@@ -29,7 +35,11 @@ public class Snapshot<ID extends Comparable<ID> & Serializable> {
         this.state = state;
     }
 
-    // Write the snapshot to a file
+    /**
+     * Write the snapshot to a file if the snapshot is complete
+     * @param file File to write the snapshot to.
+     * @return true if the snapshot was saved correctly. false otherwise.
+     */
     public boolean writeToFile(File file) {
         if(!isSnapshotComplete())
             return false;
@@ -55,7 +65,10 @@ public class Snapshot<ID extends Comparable<ID> & Serializable> {
         return false;
     }
 
-    // Get the snapshot ID
+    /**
+     * Get the snapshot ID
+     * @return Snapshot unique id
+     */
     public UUID getSnapshotID() {
         return snapshotID;
     }
@@ -64,37 +77,52 @@ public class Snapshot<ID extends Comparable<ID> & Serializable> {
         return date;
     }
 
-    // Check if a session is pending in the snapshot
+    /**
+     * Check if a session is pending in the snapshot
+     * @param session Session to check.
+     * @return true if the session has not yet sent an ack
+     */
     public boolean isSessionPending(ID session) {
         synchronized (pendingSessions) {
             return pendingSessions.contains(session);
         }
     }
 
-    // Mark a session as done in the snapshot
+    /**
+     * Mark a session as done in the snapshot, after an ACK is received
+     */
     public void markSessionAsDone(ID id) {
         synchronized (pendingSessions) {
             pendingSessions.remove(id);
         }
     }
 
-    // Check if the snapshot is complete
+    /**
+     * Check if the snapshot is complete
+     * @return Returns true if all sessions initially pending sent an ack and called markSessionAsDone
+     */
     public boolean isSnapshotComplete() {
         synchronized(pendingSessions) {
             return pendingSessions.isEmpty();
         }
     }
 
-    // Record a packet in the snapshot for a particular session
-    public void recordPacket(ID id, Packet packet) {
+    /**
+     * Record a packet in the snapshot for a particular session (must be pending!).
+     * @param session Session that sent the packet
+     * @param packet Packet to record.
+     */
+    public void recordPacket(Session<ID> session, Packet packet) {
+        assert isSessionPending(session.getID());
+
         Collection<Packet> packets;
-        if(recordedPackets.containsKey(id)) {
-            packets = recordedPackets.get(id);
+        if(recordedPackets.containsKey(session.getID())) {
+            packets = recordedPackets.get(session.getID());
         } else {
             packets = new ArrayDeque<>();
-            recordedPackets.put(id, packets);
+            recordedPackets.put(session.getID(), packets);
         }
         packets.add(packet);
-        recordedPackets.put(id, packets);
+        recordedPackets.put(session.getID(), packets);
     }
 }

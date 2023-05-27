@@ -3,18 +3,21 @@ package progetto.tcp;
 import progetto.Session;
 import progetto.packet.Packet;
 import progetto.session.SessionListener;
-import progetto.session.packet.ClientGreetPacket;
+import progetto.tcp.packet.ClientGreetPacket;
 
 import java.io.Serializable;
 import java.net.Socket;
 
+/**
+ * TcpSession accepted by a TcpServer.
+ * Differs by TcpClientSession, which instead is created to connect to a TcpServer.
+ * @param <ID> The session id.
+ */
 public class TcpServerSession<ID extends Comparable<ID> & Serializable> extends TcpSession<ID> implements SessionListener<ID> {
-
     public TcpServerSession(Socket socket) {
         super(socket);
         this.addListener(this);
     }
-
 
     @Override
     public void onPacketReceived(Session<ID> session, Packet packet) {

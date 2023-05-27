@@ -46,7 +46,6 @@ public class TcpSession<ID extends Comparable<ID> & Serializable> implements Ses
         listeners.addListener(sessionListener);
     }
 
-    @Override
     public void start() {
         run = true;
         receiveThread.start();
@@ -90,12 +89,10 @@ public class TcpSession<ID extends Comparable<ID> & Serializable> implements Ses
         }
     }
 
-    @Override
     public boolean isConnected() {
         return socket.isConnected();
     }
 
-    @Override
     public void disconnect() {
         run = false;
         try {

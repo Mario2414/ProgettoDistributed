@@ -28,12 +28,10 @@ public class DummySessionTest implements Session<Integer> {
         listeners.addListener(session);
     }
 
-    @Override
     public boolean isConnected() {
         return true;
     }
 
-    @Override
     public void disconnect() {
 
     }
@@ -48,7 +46,6 @@ public class DummySessionTest implements Session<Integer> {
         listeners.forEachListeners(l -> l.onPacketReceived(this, packet));
     }
 
-    @Override
     public void start() {
 
     }

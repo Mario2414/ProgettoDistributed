@@ -1,6 +1,6 @@
 package progetto.tcp;
 
-import progetto.session.packet.ClientGreetPacket;
+import progetto.tcp.packet.ClientGreetPacket;
 
 import java.io.IOException;
 import java.io.Serializable;

@@ -1,4 +1,4 @@
-package progetto.session.packet;
+package progetto.tcp.packet;
 
 import progetto.packet.Packet;
 

@@ -1,9 +1,10 @@
 package progetto;
 
 import progetto.packet.Packet;
+import progetto.session.ServerListener;
 import progetto.session.SessionListener;
-import progetto.session.packet.SnapshotAckPacket;
-import progetto.session.packet.SnapshotMarkerPacket;
+import progetto.packet.SnapshotAckPacket;
+import progetto.packet.SnapshotMarkerPacket;
 import progetto.state.State;
 import progetto.utils.Const;
 import progetto.utils.ListenerList;
@@ -14,32 +15,64 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
-public class DistributedNode<ID extends Comparable<ID> & Serializable> implements SessionListener<ID> {
+/**
+ * The node is used to keep active sessions and handle snapshots.
+ * @param <ID> Type of the unique ID for sessions.
+ */
+public class DistributedNode<ID extends Comparable<ID> & Serializable> implements SessionListener<ID>, ServerListener<ID> {
     protected final Queue<Session<ID>> sessions;
+    protected final Queue<Server<ID>> servers;
     protected final Map<UUID, Snapshot<ID>> snapshots;
     protected final State state;
     protected final Queue<Snapshot<ID>> activeSnapshots;
     protected final ListenerList<DistributedNodeListener<ID>> listeners;
 
-    // Constructor for creating a distributed node with a state object
+    /**
+     * Constructor for creating a distributed node with a state object
+     * @param state The state object (model in a MVN pattern) for the node.
+     */
     public DistributedNode(State state) {
         sessions = new ConcurrentLinkedQueue<>();
+        servers = new ConcurrentLinkedQueue<>();
         this.snapshots = new ConcurrentHashMap<>();
         this.activeSnapshots = new ConcurrentLinkedQueue<>();
         listeners = new ListenerList<>();
         this.state = state;
     }
 
-    public DistributedNode(File snapshotFile, List<Session<ID>> sessions) throws IOException, ClassNotFoundException {
+    /**
+     *
+     * @param snapshotFile Snapshot file to restore the state from
+     * @param sessions Lists of connected sessions.
+     * @param servers List of servers
+     * @throws IOException Thrown if the snapshotFile can't be found.
+     * @throws ClassNotFoundException Thrown if deserialization fails.
+     */
+    public DistributedNode(File snapshotFile, List<Session<ID>> sessions, List<Server<ID>> servers) throws IOException, ClassNotFoundException {
         this.sessions = new ConcurrentLinkedQueue<>(sessions);
+        this.servers = new ConcurrentLinkedQueue<>(servers);
         this.snapshots = new ConcurrentHashMap<>();
         this.activeSnapshots = new ConcurrentLinkedQueue<>();
         listeners = new ListenerList<>();
         sessions.forEach(s -> s.addListener(this));
-
+        servers.forEach(s -> {
+            s.addServerListener(this);
+            for(Session<ID> session : s.getActiveSessions()) {
+                if(!sessions.contains(session)) {
+                    addSession(session);
+                }
+            }
+        });
         this.state = restoreSnapshot(snapshotFile);
     }
 
+    /**
+     * Restore the state from a snapshot file
+     * @param snapshotFile The file to restore the snapshot from
+     * @return The restored snapshot (same as this.getState())
+     * @throws IOException Thrown if the snapshotFile can't be found.
+     * @throws ClassNotFoundException Thrown if deserialization fails.
+     */
     public State restoreSnapshot(File snapshotFile)  throws IOException, ClassNotFoundException {
         ObjectInputStream in = new ObjectInputStream(new FileInputStream(snapshotFile));
         UUID snapshotID = (UUID) in.readObject();
@@ -71,21 +104,44 @@ public class DistributedNode<ID extends Comparable<ID> & Serializable> implement
         return state;
     }
 
-    // Add a session to the distributed node
+    /**
+     * Add a session to the distributed node, to allow handling of snapshots.
+     * @param session Session to be added to the Distributed node
+     */
     public void addSession(Session<ID> session) {
         sessions.add(session);
         session.addListener(this);
     }
 
+    /**
+     * Add a server to the distributed node.
+     * New Sessions accepted by the server will be automatically added to the DistributedNode
+     * @param server Server to be added.
+     */
+    public void addServer(Server<ID> server) {
+        servers.add(server);
+        server.addServerListener(this);
+    }
+
+    /**
+     * Add a listener to DistributedNode for snapshot events
+     * @param listener The listener to register
+     */
     public void addListener(DistributedNodeListener<ID> listener) {
         listeners.addListener(listener);
     }
 
-    //return a copy of session
+    /**
+     * Get the sessions for the distributed node.
+     * @return The copy of the session list
+     */
     public Queue<Session<ID>> getSessions() {
         return new ConcurrentLinkedQueue<>(sessions);
     }
 
+    /**
+     * Start the snapshot procedure.
+     */
     public void snapshot() {
         try {
             UUID uuid = UUID.randomUUID();
@@ -137,7 +193,7 @@ public class DistributedNode<ID extends Comparable<ID> & Serializable> implement
 
             for(Snapshot<ID> snapshot: activeSnapshots) {
                 if(snapshot.isSessionPending(session.getID())) {
-                    snapshot.recordPacket(session.getID(), packet);
+                    snapshot.recordPacket(session, packet);
                 }
             }
         }
@@ -156,5 +212,20 @@ public class DistributedNode<ID extends Comparable<ID> & Serializable> implement
     @Override
     public void onDisconnection(Session<ID> session, Throwable exception) {
         sessions.remove(session);
+    }
+
+    @Override
+    public void onSessionAccepted(Server<ID> server, Session<ID> session) {
+        addSession(session);
+    }
+
+    @Override
+    public void onSessionClosed(Server<ID> server, Session<ID> session) {
+        //not needed, because it is handled by SessionListener.onDisconnection
+    }
+
+    @Override
+    public void onServerClosed(Server<ID> server, Throwable t) {
+        servers.remove(server);
     }
 }

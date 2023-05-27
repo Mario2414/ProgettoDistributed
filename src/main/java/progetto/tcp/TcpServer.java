@@ -36,23 +36,19 @@ public class TcpServer<ID extends Comparable<ID> & Serializable> implements Serv
         }
         this.thread = new Thread(this::startServer);
     }
-    @Override
     public String getHost() {
         return host;
     }
 
-    @Override
     public int getPort() {
         return port;
     }
 
-    @Override
     public void bind() {
         run = true;
         thread.start();
     }
 
-    @Override
     public void close() {
         try {
             run = false;
@@ -79,7 +75,7 @@ public class TcpServer<ID extends Comparable<ID> & Serializable> implements Serv
                 if(Const.DEBUG) System.out.println("Accepting");
                 Socket socket = server.accept();
                 if(Const.DEBUG) System.out.println("Accepted");
-                Session<ID> session = new TcpServerSession<ID>(socket);
+                TcpServerSession<ID> session = new TcpServerSession<ID>(socket);
                 synchronized (activeSessions) {
                     activeSessions.add(session);
                 }
