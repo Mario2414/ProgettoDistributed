@@ -5,6 +5,7 @@ import progetto.Session;
 import progetto.packet.Packet;
 import progetto.session.ServerListener;
 import progetto.session.SessionListener;
+import progetto.utils.Const;
 import progetto.utils.ListenerList;
 
 import java.io.IOException;
@@ -49,7 +50,6 @@ public class TcpServer<ID extends Comparable<ID> & Serializable> implements Serv
     public void bind() {
         run = true;
         thread.start();
-        //TODO keepAliveThread.start();
     }
 
     @Override
@@ -76,11 +76,10 @@ public class TcpServer<ID extends Comparable<ID> & Serializable> implements Serv
         try {
             server.bind(new InetSocketAddress(host, port));
             while (run) {
-                System.out.println("Accepting");
+                if(Const.DEBUG) System.out.println("Accepting");
                 Socket socket = server.accept();
-                System.out.println("Accepted");
+                if(Const.DEBUG) System.out.println("Accepted");
                 Session<ID> session = new TcpServerSession<ID>(socket);
-                //TODO lastKeepAlive.put(session.getID(), System.currentTimeMillis());
                 synchronized (activeSessions) {
                     activeSessions.add(session);
                 }
@@ -93,7 +92,7 @@ public class TcpServer<ID extends Comparable<ID> & Serializable> implements Serv
             listeners.forEachListeners(l -> l.onServerClosed(this, e));
         }
 
-        System.out.println("startServer ending");
+        if(Const.DEBUG) System.out.println("startServer ending");
     }
 
     //Session Listener methods

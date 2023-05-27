@@ -14,11 +14,6 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
-/*
-* TODO
-*  Problem with circular networks topology
-* */
-
 public class DistributedNode<ID extends Comparable<ID> & Serializable> implements SessionListener<ID> {
     protected final Queue<Session<ID>> sessions;
     protected final Map<UUID, Snapshot<ID>> snapshots;
