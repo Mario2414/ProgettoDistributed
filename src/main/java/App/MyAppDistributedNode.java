@@ -17,6 +17,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 public class MyAppDistributedNode extends DistributedNode<Integer> implements DistributedNodeListener<Integer> {
     private GoodsThread goodsThread;
+
+    private final Map<UUID, SnapshotRestore> snapshotsRestoreCompleted;
     private final Map<UUID, SnapshotRestore> snapshotsRestore;
     private final List<MyAppClientSession> outgoingLinks;
     private final int numOfNodes;
@@ -30,6 +32,7 @@ public class MyAppDistributedNode extends DistributedNode<Integer> implements Di
         this.state = state;
         outgoingLinks = new CopyOnWriteArrayList<MyAppClientSession>();
 
+        snapshotsRestoreCompleted = new ConcurrentHashMap<UUID, SnapshotRestore>();
         snapshotsRestore = new ConcurrentHashMap<UUID, SnapshotRestore>();
         this.addListener(this);
 
@@ -124,56 +127,64 @@ public class MyAppDistributedNode extends DistributedNode<Integer> implements Di
             //This block must be seen as a single atomic operation
             synchronized (this) {
                 firstTime = !snapshotsRestore.containsKey(uuid);
-                if (firstTime) {
-                    try {
-                        goodsThread.stopThread();
-                    } catch (InterruptedException e) {
-                        throw new RuntimeException(e);
-                    }
-
-                    List<Session<Integer>> otherSessions = sessions.stream().filter(s -> !s.getID().equals(session.getID())).toList();
-                    SnapshotRestore snapshot = new SnapshotRestore(uuid, Optional.of(session), otherSessions);
-
-                    if(otherSessions.isEmpty()) {
+                if(!snapshotsRestoreCompleted.containsKey(uuid)){
+                    if (firstTime) {
                         try {
-                            System.out.println("Restoring snapshot 1");
-                            restoreSnapshot(new File("latest.snapshot"));
-                            goodsThread = new GoodsThread(this, batch, numOfNodes, productionTime);
-                            goodsThread.start();
-
-                            session.sendPacket(new SnapshotRestoreAckPacket(uuid)); //initiator
-                        } catch (Exception e) {
-                            e.printStackTrace();
+                            goodsThread.stopThread();
+                        } catch (InterruptedException e) {
                             throw new RuntimeException(e);
                         }
-                    } else {
-                        snapshotsRestore.put(uuid, snapshot);
 
-                        otherSessions.forEach(otherSession -> otherSession.sendPacket(packet));
+                        List<Session<Integer>> otherSessions = sessions.stream().filter(s -> !s.getID().equals(session.getID())).toList();
+                        SnapshotRestore snapshot = new SnapshotRestore(uuid, Optional.of(session), otherSessions);
+
+                        if(otherSessions.isEmpty()) {
+                            try {
+                                System.out.println("Restoring snapshot 1");
+                                snapshotsRestoreCompleted.put(uuid, snapshot);
+                                restoreSnapshot(new File("latest.snapshot"));
+                                goodsThread = new GoodsThread(this, batch, numOfNodes, productionTime);
+                                goodsThread.start();
+
+                                session.sendPacket(new SnapshotRestoreAckPacket(uuid)); //initiator
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                                throw new RuntimeException(e);
+                            }
+                        } else {
+                            snapshotsRestore.put(uuid, snapshot);
+
+                            otherSessions.forEach(otherSession -> otherSession.sendPacket(packet));
+                        }
+                    } else {
+                        session.sendPacket(new SnapshotRestoreAckPacket(uuid));
                     }
-                } else {
-                    session.sendPacket(new SnapshotRestoreAckPacket(uuid));
+
                 }
             }
         } else if(packet instanceof SnapshotRestoreAckPacket) {
             UUID snapshotID = ((SnapshotRestoreAckPacket) packet).getSnasphotRestoreId();
             //synchronization block is needed to guarantee that snapshot complete is called only once
             synchronized (this){
-                if(snapshotsRestore.containsKey(snapshotID)) {
-                    SnapshotRestore snapshot = snapshotsRestore.get(snapshotID);
-                    snapshot.markSessionAsDone(session.getID());
-                    if (snapshot.isSnapshotRestoreComplete()) {
-                        try {
-                            System.out.println("Restoring snapshot 2");
-                            goodsThread.stopThread();
-                            restoreSnapshot(new File("latest.snapshot"));
-                            goodsThread = new GoodsThread(this, batch, numOfNodes, productionTime);
-                            goodsThread.start();
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                            throw new RuntimeException(e);
+
+                if(!snapshotsRestoreCompleted.containsKey(snapshotID)){
+                    if(snapshotsRestore.containsKey(snapshotID)) {
+                        SnapshotRestore snapshot = snapshotsRestore.get(snapshotID);
+                        snapshot.markSessionAsDone(session.getID());
+                        if (snapshot.isSnapshotRestoreComplete()) {
+                            try {
+                                System.out.println("Restoring snapshot 2");
+                                snapshotsRestoreCompleted.put(snapshotID, snapshotsRestore.get(snapshotID));
+                                goodsThread.stopThread();
+                                restoreSnapshot(new File("latest.snapshot"));
+                                goodsThread = new GoodsThread(this, batch, numOfNodes, productionTime);
+                                goodsThread.start();
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                                throw new RuntimeException(e);
+                            }
+                            snapshot.getRestoreInitiator().ifPresent( opt -> opt.sendPacket(new SnapshotRestoreAckPacket(snapshotID)));
                         }
-                        snapshot.getRestoreInitiator().ifPresent( opt -> opt.sendPacket(new SnapshotRestoreAckPacket(snapshotID)));
                     }
                 }
             }

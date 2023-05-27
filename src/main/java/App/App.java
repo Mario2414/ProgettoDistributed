@@ -25,6 +25,7 @@ public class App {
             System.out.println("To start a snapshot press 2");
             System.out.println("To restore from a snapshot press 3");
             System.out.println("To print the state press 4");
+            System.out.println("To print the number of session connected press 5");
             do {
                 try{
                     numInput = Integer.parseInt(stdin.nextLine());
@@ -57,6 +58,8 @@ public class App {
                 System.out.println(node.getState().toString());
             } else if(numInput == 5){
                 System.out.println(node.getSessions().size());
+            } else{
+                System.out.println("Please insert a valid number");
             }
 
         }
