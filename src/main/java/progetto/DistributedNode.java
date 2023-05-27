@@ -1,5 +1,6 @@
 package progetto;
 
+import App.SnapshotRestore;
 import progetto.packet.Packet;
 import progetto.session.ServerListener;
 import progetto.session.SessionListener;
@@ -161,13 +162,15 @@ public class DistributedNode<ID extends Comparable<ID> & Serializable> implement
         synchronized (this) {
             if(packet instanceof SnapshotMarkerPacket) {
                 UUID uuid = ((SnapshotMarkerPacket) packet).getUuid();
-                boolean firstTime = !snapshots.containsKey(uuid);
-                if(firstTime) {
+                if(!snapshots.containsKey(uuid)) {
                     Snapshot<ID> snapshot = new Snapshot<>(uuid, ((SnapshotMarkerPacket) packet).getDate(), state.clone(), sessions.stream().filter(s -> !s.getID().equals(session.getID())).toList());
+
+                    //Needed also to keep track of completed snapshots.
+                    snapshots.put(uuid, snapshot);
+
                     if(snapshot.isSnapshotComplete()) {
                         listeners.forEachListeners(l -> l.onShapshotCompleted(this, snapshot));
                     } else {
-                        snapshots.put(uuid, snapshot);
                         activeSnapshots.add(snapshot);
                     }
 
@@ -181,15 +184,14 @@ public class DistributedNode<ID extends Comparable<ID> & Serializable> implement
                 session.sendPacket(new SnapshotAckPacket(uuid));
             } else if(packet instanceof SnapshotAckPacket) {
                 UUID snapshotID = ((SnapshotAckPacket) packet).getUuid();
-                if(snapshots.containsKey(snapshotID)) {
-                    Snapshot<ID> snapshot = snapshots.get(snapshotID);
+                Snapshot<ID> snapshot = snapshots.getOrDefault(snapshotID, null);
+                if(snapshot != null && !snapshot.isSnapshotComplete()) {
                     if(activeSnapshots.contains(snapshot)){
                         snapshot.markSessionAsDone(session.getID());
                         if (snapshot.isSnapshotComplete()) {
                             listeners.forEachListeners(l -> l.onShapshotCompleted(this, snapshot));
                             activeSnapshots.remove(snapshot);
                         }
-
                     }
                 }
             }

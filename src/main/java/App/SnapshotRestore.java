@@ -20,6 +20,10 @@ public class SnapshotRestore {
         //System.out.println("ci sono tot sessioni aperte: "+this.pendingSessions.size());
     }
 
+    public UUID getUuid() {
+        return uuid;
+    }
+
     // Check if a session is pending in the snapshot
     public boolean isSessionPending(Integer session) {
         synchronized (pendingSessions) {
