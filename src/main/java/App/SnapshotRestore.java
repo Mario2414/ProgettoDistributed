@@ -13,11 +13,18 @@ public class SnapshotRestore {
     private final Optional<Session<Integer>> restoreInitiator;
     private final HashSet<Integer> pendingSessions;
 
-    public SnapshotRestore(UUID uuid, Optional<Session<Integer>> restoreInitiator, Collection<Session<Integer>> sessions) {
+    private final boolean isRoot;
+
+    public SnapshotRestore(UUID uuid, Optional<Session<Integer>> restoreInitiator, Collection<Session<Integer>> sessions, boolean isRoot) {
         this.uuid = uuid;
         this.restoreInitiator = restoreInitiator;
+        this.isRoot = isRoot;
         this.pendingSessions = sessions.stream().map(Session::getID).collect(Collectors.toCollection(HashSet::new));
         //System.out.println("ci sono tot sessioni aperte: "+this.pendingSessions.size());
+    }
+
+    public boolean isRoot() {
+        return isRoot;
     }
 
     public UUID getUuid() {

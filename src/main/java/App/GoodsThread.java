@@ -2,12 +2,14 @@ package App;
 
 import App.packets.ArrivingGoods;
 
+import java.util.concurrent.atomic.AtomicBoolean;
+
 public class GoodsThread extends Thread {
     private final MyAppDistributedNode node;
     private final int batch;
     private final int numOfNodes;
     private final long productionTime;
-    private volatile boolean isRunning = true;
+    private final AtomicBoolean isRunning = new AtomicBoolean(false);
 
     public GoodsThread(MyAppDistributedNode node, int batch, int numOfNodes, long productionTime){
         this.batch = batch;
@@ -17,7 +19,7 @@ public class GoodsThread extends Thread {
     }
 
     public void run() {
-        while (isRunning) {
+        while (isRunning.get()) {
             float workingOn = node.getState().getWorkingOn();
             if (workingOn - batch >= 0) {
                 try {
@@ -46,8 +48,17 @@ public class GoodsThread extends Thread {
         }
     }
 
+    public void start() {
+        isRunning.set(true);
+        super.start();
+    }
+
     public void stopThread() throws InterruptedException {
-        isRunning = false;
+        isRunning.set(false);
         join();
+    }
+
+    public boolean isRunning() {
+        return isRunning.get();
     }
 }

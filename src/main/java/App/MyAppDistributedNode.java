@@ -1,6 +1,7 @@
 package App;
 
 import App.packets.ArrivingGoods;
+import App.packets.GoodsThreadRestart;
 import App.packets.SnapshotRestoreAckPacket;
 import App.packets.SnapshotRestorePacket;
 import progetto.DistributedNode;
@@ -54,7 +55,6 @@ public class MyAppDistributedNode extends DistributedNode<Integer> implements Di
             }
 
             goodsThread = new GoodsThread(this, batch, numOfNodes, productionTime);
-            goodsThread.start();
 
             for(ConfigSession sessionCfg : parameters.getClientSessions()) {
 
@@ -78,6 +78,7 @@ public class MyAppDistributedNode extends DistributedNode<Integer> implements Di
                 );
             }
 
+            goodsThread.start();
         } catch (Exception e) {
             System.out.println("Error reading config file");
             throw new RuntimeException(e);
@@ -96,7 +97,7 @@ public class MyAppDistributedNode extends DistributedNode<Integer> implements Di
                     throw new RuntimeException(e);
                 }
 
-                SnapshotRestore snapshot = new SnapshotRestore(uuid, Optional.empty(), sessions);
+                SnapshotRestore snapshot = new SnapshotRestore(uuid, Optional.empty(), sessions, true);
                 snapshotsRestore.put(uuid, snapshot);
                 sessions.forEach(s -> s.sendPacket(new SnapshotRestorePacket(uuid)));
             } else {
@@ -123,8 +124,6 @@ public class MyAppDistributedNode extends DistributedNode<Integer> implements Di
         synchronized (this) {
             if (packet instanceof SnapshotRestorePacket) {
                 UUID uuid = ((SnapshotRestorePacket) packet).getSnasphotRestoreId();
-
-
                 if (!snapshotsRestore.containsKey(uuid)) {
                     try {
                         goodsThread.stopThread();
@@ -133,7 +132,7 @@ public class MyAppDistributedNode extends DistributedNode<Integer> implements Di
                     }
 
                     List<Session<Integer>> otherSessions = sessions.stream().filter(s -> !s.getID().equals(session.getID())).toList();
-                    SnapshotRestore snapshot = new SnapshotRestore(uuid, Optional.of(session), otherSessions);
+                    SnapshotRestore snapshot = new SnapshotRestore(uuid, Optional.of(session), otherSessions, false);
 
                     //needed also to keep track of completed snapshots.
                     snapshotsRestore.put(uuid, snapshot);
@@ -155,6 +154,15 @@ public class MyAppDistributedNode extends DistributedNode<Integer> implements Di
                         restoreSnapshot(snapshot);
                     }
                 }
+            } else if(packet instanceof GoodsThreadRestart) {
+                if(!goodsThread.isRunning()) { //avoid recursion in case of circular network with this check.
+                    goodsThread = new GoodsThread(this, batch, numOfNodes, productionTime);
+                    goodsThread.start();
+
+                    sessions.forEach(s -> {
+                        if (s != session) s.sendPacket(new GoodsThreadRestart());
+                    });
+                }
             }
         }
 
@@ -169,8 +177,11 @@ public class MyAppDistributedNode extends DistributedNode<Integer> implements Di
             System.out.println("Restoring snapshot...");
             goodsThread.stopThread();
             restoreSnapshot(new File("latest.snapshot"));
-            goodsThread = new GoodsThread(this, batch, numOfNodes, productionTime);
-            goodsThread.start();
+            if(snapshot.isRoot()) { //root node is guaranteed to be the last node to restore the snapshot.
+                goodsThread = new GoodsThread(this, batch, numOfNodes, productionTime);
+                goodsThread.start();
+                sessions.forEach(s -> s.sendPacket(new GoodsThreadRestart())); //initiate the goods thread restart procedure.
+            }
         } catch (Exception e) {
             e.printStackTrace();
             throw new RuntimeException(e);
