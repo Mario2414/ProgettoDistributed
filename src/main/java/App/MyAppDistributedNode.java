@@ -15,6 +15,8 @@ import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class MyAppDistributedNode extends DistributedNode<Integer> implements DistributedNodeListener<Integer> {
     private GoodsThread goodsThread;
@@ -26,6 +28,9 @@ public class MyAppDistributedNode extends DistributedNode<Integer> implements Di
     private final long productionTime;
     private final int batch;
     private final float multiplier;
+
+    private final AtomicInteger wipRestores = new AtomicInteger(0);
+    private final AtomicBoolean enqueueRestart = new AtomicBoolean(false);
 
     public MyAppDistributedNode(StateApp state) {
         super(state);
@@ -97,6 +102,9 @@ public class MyAppDistributedNode extends DistributedNode<Integer> implements Di
                     throw new RuntimeException(e);
                 }
 
+                wipRestores.incrementAndGet();
+                enqueueRestart.set(false);
+
                 SnapshotRestore snapshot = new SnapshotRestore(uuid, Optional.empty(), sessions, true);
                 snapshotsRestore.put(uuid, snapshot);
                 sessions.forEach(s -> s.sendPacket(new SnapshotRestorePacket(uuid)));
@@ -131,6 +139,9 @@ public class MyAppDistributedNode extends DistributedNode<Integer> implements Di
                         throw new RuntimeException(e);
                     }
 
+                    wipRestores.incrementAndGet();
+                    enqueueRestart.set(false);
+
                     List<Session<Integer>> otherSessions = sessions.stream().filter(s -> !s.getID().equals(session.getID())).toList();
                     SnapshotRestore snapshot = new SnapshotRestore(uuid, Optional.of(session), otherSessions, false);
 
@@ -155,7 +166,7 @@ public class MyAppDistributedNode extends DistributedNode<Integer> implements Di
                     }
                 }
             } else if(packet instanceof GoodsThreadRestart) {
-                if(!goodsThread.isRunning()) { //avoid recursion in case of circular network with this check.
+                if(!goodsThread.isRunning() && wipRestores.get() == 0) { //avoid recursion in case of circular network with this check.
                     goodsThread = new GoodsThread(this, batch, numOfNodes, productionTime);
                     goodsThread.start();
 
@@ -175,12 +186,24 @@ public class MyAppDistributedNode extends DistributedNode<Integer> implements Di
     private void restoreSnapshot(SnapshotRestore snapshot) {
         try {
             System.out.println("Restoring snapshot...");
-            goodsThread.stopThread();
             restoreSnapshot(new File("latest.snapshot"));
+            int val = wipRestores.decrementAndGet();
             if(snapshot.isRoot()) { //root node is guaranteed to be the last node to restore the snapshot.
-                goodsThread = new GoodsThread(this, batch, numOfNodes, productionTime);
-                goodsThread.start();
-                sessions.forEach(s -> s.sendPacket(new GoodsThreadRestart())); //initiate the goods thread restart procedure.
+                if(val == 0) {
+                    goodsThread = new GoodsThread(this, batch, numOfNodes, productionTime);
+                    goodsThread.start();
+                    sessions.forEach(s -> s.sendPacket(new GoodsThreadRestart())); //initiate the goods thread restart procedure.
+
+                    enqueueRestart.set(false);
+                } else {
+                    enqueueRestart.set(true);
+                }
+            } else if(val == 0) {
+                if(enqueueRestart.getAndSet(false)) {
+                    goodsThread = new GoodsThread(this, batch, numOfNodes, productionTime);
+                    goodsThread.start();
+                    sessions.forEach(s -> s.sendPacket(new GoodsThreadRestart())); //initiate the goods thread restart procedure.
+                }
             }
         } catch (Exception e) {
             e.printStackTrace();
