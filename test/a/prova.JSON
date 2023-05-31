@@ -10,8 +10,14 @@
       "id": 1,
       "ip": "localhost",
       "port": 8081,
-      "percentage": 1
+      "percentage": 0.5
+    },
+    {
+      "id": 4,
+      "ip": "localhost",
+      "port": 8095,
+      "percentage": 0.5
     }
   ],
-  "productionTime": 7
+  "productionTime": 12
 }
