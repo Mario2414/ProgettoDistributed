@@ -30,7 +30,7 @@ public class MyAppDistributedNode extends DistributedNode<Integer> implements Di
     private final float multiplier;
 
     private final AtomicInteger wipRestores = new AtomicInteger(0);
-    private final AtomicBoolean enqueueRestart = new AtomicBoolean(false);
+    //private final AtomicBoolean enqueueRestart = new AtomicBoolean(false);
 
     public MyAppDistributedNode(StateApp state) {
         super(state);
@@ -103,7 +103,7 @@ public class MyAppDistributedNode extends DistributedNode<Integer> implements Di
                 }
 
                 wipRestores.incrementAndGet();
-                enqueueRestart.set(false);
+                //enqueueRestart.set(false);
 
                 SnapshotRestore snapshot = new SnapshotRestore(uuid, Optional.empty(), sessions, true);
                 snapshotsRestore.put(uuid, snapshot);
@@ -140,7 +140,7 @@ public class MyAppDistributedNode extends DistributedNode<Integer> implements Di
                     }
 
                     wipRestores.incrementAndGet();
-                    enqueueRestart.set(false);
+                    //enqueueRestart.set(false);
 
                     List<Session<Integer>> otherSessions = sessions.stream().filter(s -> !s.getID().equals(session.getID())).toList();
                     SnapshotRestore snapshot = new SnapshotRestore(uuid, Optional.of(session), otherSessions, false);
@@ -188,6 +188,12 @@ public class MyAppDistributedNode extends DistributedNode<Integer> implements Di
             System.out.println("Restoring snapshot...");
             restoreSnapshot(new File("latest.snapshot"));
             int val = wipRestores.decrementAndGet();
+            if(val == 0) {
+                goodsThread = new GoodsThread(this, batch, numOfNodes, productionTime);
+                goodsThread.start();
+                sessions.forEach(s -> s.sendPacket(new GoodsThreadRestart())); //initiate the goods thread restart procedure.
+            }
+            /*
             if(snapshot.isRoot()) { //root node is guaranteed to be the last node to restore the snapshot.
                 if(val == 0) {
                     goodsThread = new GoodsThread(this, batch, numOfNodes, productionTime);
@@ -205,10 +211,14 @@ public class MyAppDistributedNode extends DistributedNode<Integer> implements Di
                     sessions.forEach(s -> s.sendPacket(new GoodsThreadRestart())); //initiate the goods thread restart procedure.
                 }
             }
+
+             */
         } catch (Exception e) {
             e.printStackTrace();
             throw new RuntimeException(e);
         }
+
+
         snapshot.getRestoreInitiator().ifPresent(opt -> opt.sendPacket(new SnapshotRestoreAckPacket(snapshot.getUuid())));
     }
 

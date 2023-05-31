@@ -1,0 +1,10 @@
+{
+  "multiplier": 1,
+  "batch": 100,
+  "server" : {
+    "ip": "localhost",
+    "serverPort": 8095
+  },
+  "nodes": [ ],
+  "productionTime": 12
+}
