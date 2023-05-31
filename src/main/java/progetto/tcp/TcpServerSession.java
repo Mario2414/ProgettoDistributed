@@ -23,6 +23,7 @@ public class TcpServerSession<ID extends Comparable<ID> & Serializable> extends 
     public void onPacketReceived(Session<ID> session, Packet packet) {
         if(packet instanceof ClientGreetPacket) {
             this.sessionID = ((ClientGreetPacket<ID>) packet).getSessionID();
+            listeners.forEachListeners(l -> l.onConnected(this));
         }
     }
 

@@ -13,12 +13,13 @@ import java.net.Socket;
 import java.util.List;
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class TcpSession<ID extends Comparable<ID> & Serializable> implements Session<ID> {
     protected final Socket socket;
     protected final Thread receiveThread;
     protected final Thread writeThead;
-    private volatile boolean run = false; //make it atomic boolean, just in case
+    private final AtomicBoolean run = new AtomicBoolean(false);
     protected final ListenerList<SessionListener<ID>> listeners = new ListenerList<>();
     protected final BlockingDeque<Packet> outboundPacketQueue;
     protected ID sessionID;
@@ -47,7 +48,7 @@ public class TcpSession<ID extends Comparable<ID> & Serializable> implements Ses
     }
 
     public void start() {
-        run = true;
+        run.set(true);
         receiveThread.start();
     }
 
@@ -58,10 +59,9 @@ public class TcpSession<ID extends Comparable<ID> & Serializable> implements Ses
 
     protected void runImpl() {
         try {
-            listeners.forEachListeners(l -> l.onConnected(this));
             writeThead.start();
             ObjectInputStream in = new ObjectInputStream(socket.getInputStream());
-            while (run) {
+            while (run.get()) {
                 Packet packet = (Packet) in.readObject();
                 listeners.forEachListeners(l -> l.onPacketReceived(this, packet));
             }
@@ -69,7 +69,7 @@ public class TcpSession<ID extends Comparable<ID> & Serializable> implements Ses
             e.printStackTrace();
             listeners.forEachListeners(sessionListener -> sessionListener.onDisconnection(this, e));
         } finally {
-            run = false;
+            run.set(false);
             outboundPacketQueue.clear();
         }
     }
@@ -77,7 +77,7 @@ public class TcpSession<ID extends Comparable<ID> & Serializable> implements Ses
     protected void writeThread() {
         try {
             ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream());
-            while (run) {
+            while (run.get()) {
                 Packet packet = outboundPacketQueue.take();
                 out.writeObject(packet);
                 listeners.forEachListeners(l -> l.onPacketSent(this, packet));
@@ -85,7 +85,7 @@ public class TcpSession<ID extends Comparable<ID> & Serializable> implements Ses
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
-            run = false;
+            run.set(false);
         }
     }
 
@@ -94,7 +94,7 @@ public class TcpSession<ID extends Comparable<ID> & Serializable> implements Ses
     }
 
     public void disconnect() {
-        run = false;
+        run.set(false);
         try {
             socket.close();
         } catch (IOException e) {

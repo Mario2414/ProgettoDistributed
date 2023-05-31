@@ -5,6 +5,7 @@ import progetto.Session;
 import progetto.packet.Packet;
 import progetto.session.ServerListener;
 import progetto.session.SessionListener;
+import progetto.tcp.packet.ClientGreetPacket;
 import progetto.utils.Const;
 import progetto.utils.ListenerList;
 
@@ -79,9 +80,8 @@ public class TcpServer<ID extends Comparable<ID> & Serializable> implements Serv
                 synchronized (activeSessions) {
                     activeSessions.add(session);
                 }
-                listeners.forEachListeners(l -> l.onSessionAccepted(this, session));
-                session.start();
                 session.addListener(this);
+                session.start();
             }
         } catch (Exception e){
             e.printStackTrace();
@@ -94,6 +94,9 @@ public class TcpServer<ID extends Comparable<ID> & Serializable> implements Serv
     //Session Listener methods
     @Override
     public void onPacketReceived(Session<ID> session, Packet packet) {
+        if(packet instanceof ClientGreetPacket<?>) {
+            listeners.forEachListeners(l -> l.onSessionAccepted(this, session));
+        }
     }
 
     @Override

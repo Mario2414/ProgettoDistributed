@@ -44,5 +44,7 @@ public class TcpClientSession<ID extends Comparable<ID> & Serializable> extends 
     private void _connectBlocking() throws IOException {
         socket.connect(new InetSocketAddress(host, port));
         sendPacket(new ClientGreetPacket<ID>(sessionID));
+        listeners.forEachListeners(l -> l.onConnected(this));
+        start();
     }
 }

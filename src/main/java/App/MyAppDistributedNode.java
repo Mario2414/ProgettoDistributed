@@ -76,8 +76,6 @@ public class MyAppDistributedNode extends DistributedNode<Integer> implements Di
                     Thread.sleep(10000);
                 } while (true);
 
-                session.start();
-
                 addSession(
                     session
                 );
@@ -188,36 +186,15 @@ public class MyAppDistributedNode extends DistributedNode<Integer> implements Di
             System.out.println("Restoring snapshot...");
             restoreSnapshot(new File("latest.snapshot"));
             int val = wipRestores.decrementAndGet();
-            if(val == 0) {
+            if(snapshot.isRoot() && val == 0) {
                 goodsThread = new GoodsThread(this, batch, numOfNodes, productionTime);
                 goodsThread.start();
                 sessions.forEach(s -> s.sendPacket(new GoodsThreadRestart())); //initiate the goods thread restart procedure.
             }
-            /*
-            if(snapshot.isRoot()) { //root node is guaranteed to be the last node to restore the snapshot.
-                if(val == 0) {
-                    goodsThread = new GoodsThread(this, batch, numOfNodes, productionTime);
-                    goodsThread.start();
-                    sessions.forEach(s -> s.sendPacket(new GoodsThreadRestart())); //initiate the goods thread restart procedure.
-
-                    enqueueRestart.set(false);
-                } else {
-                    enqueueRestart.set(true);
-                }
-            } else if(val == 0) {
-                if(enqueueRestart.getAndSet(false)) {
-                    goodsThread = new GoodsThread(this, batch, numOfNodes, productionTime);
-                    goodsThread.start();
-                    sessions.forEach(s -> s.sendPacket(new GoodsThreadRestart())); //initiate the goods thread restart procedure.
-                }
-            }
-
-             */
         } catch (Exception e) {
             e.printStackTrace();
             throw new RuntimeException(e);
         }
-
 
         snapshot.getRestoreInitiator().ifPresent(opt -> opt.sendPacket(new SnapshotRestoreAckPacket(snapshot.getUuid())));
     }
