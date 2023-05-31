@@ -118,6 +118,7 @@ public class MyAppDistributedNode extends DistributedNode<Integer> implements Di
     @Override
     public void onShapshotCompleted(DistributedNode<Integer> node, Snapshot<Integer> snapshot) {
         snapshot.writeToFile(new File("latest.snapshot"));
+        System.out.println("Snapshot completed!");
     }
 
     @Override
